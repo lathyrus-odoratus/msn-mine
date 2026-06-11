@@ -1,6 +1,6 @@
 # 開發對話紀錄
 
-記錄開發者（kerker）與 Claude Fable 5 的問答、判斷與決策過程。
+記錄開發者與 Claude Fable 5 的問答、判斷與決策過程。
 只記談話內容，不記實作細節（實作見 git history 與 README）。
 時間戳取自 session 紀錄檔的實際發言時間（UTC+8）；Claude 的回答緊隨其後，不另標時。
 

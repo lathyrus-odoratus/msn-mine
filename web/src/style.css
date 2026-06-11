@@ -1,0 +1,180 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #6fa8dc 0%, #3d6fa5 100%);
+  font-family: 'Segoe UI', 'Microsoft JhengHei', system-ui, sans-serif;
+}
+
+/* 仿舊版視窗外框 */
+.window {
+  background: #ece9d8;
+  border: 1px solid #0a246a;
+  border-radius: 8px 8px 4px 4px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  margin: 24px;
+}
+
+.titlebar {
+  background: linear-gradient(180deg, #2a6fd6 0%, #1b4fa0 100%);
+  color: #fff;
+  font-weight: 600;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── 大廳 ── */
+.lobby { display: flex; flex-direction: column; gap: 14px; padding: 12px; min-width: 320px; }
+.lobby-intro { margin: 0; color: #444; font-size: 14px; max-width: 320px; }
+.lobby label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #333; }
+.lobby-actions { display: flex; flex-direction: column; gap: 10px; }
+.join-row { display: flex; gap: 8px; }
+.code-input { width: 80px; text-transform: uppercase; text-align: center; letter-spacing: 2px; }
+
+input {
+  padding: 8px 10px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  font-size: 15px;
+}
+
+button {
+  padding: 9px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(180deg, #3f8ae0 0%, #2563b8 100%);
+  border: 1px solid #1b4fa0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.08); }
+button.secondary {
+  color: #333;
+  background: linear-gradient(180deg, #fdfdfd 0%, #dcdcdc 100%);
+  border-color: #999;
+}
+
+/* ── 等待室 ── */
+.waiting { text-align: center; padding: 16px 32px; }
+.room-code {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 10px;
+  color: #1b4fa0;
+  background: #fff;
+  border: 2px dashed #2a6fd6;
+  border-radius: 8px;
+  padding: 10px 18px 10px 28px;
+  margin: 10px 0;
+  user-select: all;
+}
+
+/* ── 計分板 ── */
+.score-panel { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+  min-width: 140px;
+}
+.player-card.active { border-color: currentColor; box-shadow: 0 0 8px rgba(0, 0, 0, 0.2); }
+.player-0 { color: #1d5fd6; }
+.player-1 { color: #d62a2a; }
+.player-name { font-weight: 600; font-size: 14px; color: #222; flex: 1; }
+.player-name small { color: #888; font-weight: 400; }
+.player-score { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.flag { font-size: 20px; }
+.turn-hint { font-size: 14px; font-weight: 600; color: #1b4fa0; }
+
+/* ── 棋盤 ── */
+.board {
+  display: grid;
+  gap: 0;
+  border: 3px solid;
+  border-color: #808080 #fff #fff #808080;
+  background: #c0c0c0;
+  user-select: none;
+}
+
+.cell {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: 'Segoe UI', monospace;
+}
+
+/* 未翻開：經典立體凸起 */
+.cell.hidden {
+  background: #c0c0c0;
+  border: 3px solid;
+  border-color: #fff #808080 #808080 #fff;
+}
+.cell.hidden.clickable { cursor: pointer; }
+.cell.hidden.clickable:hover { background: #d4d4d4; }
+.board.not-my-turn .cell.hidden { cursor: not-allowed; }
+
+/* 已翻開：扁平 */
+.cell.revealed {
+  background: #d8d8d8;
+  border: 1px solid #a8a8a8;
+}
+
+.cell.last-move { outline: 2px solid #f5a623; outline-offset: -2px; z-index: 1; }
+
+/* 經典數字配色 */
+.n1 { color: #0000ff; }
+.n2 { color: #008000; }
+.n3 { color: #ff0000; }
+.n4 { color: #000080; }
+.n5 { color: #800000; }
+.n6 { color: #008080; }
+.n7 { color: #000000; }
+.n8 { color: #808080; }
+
+/* 旗子：藍方 / 紅方 */
+.cell.mine-0 { color: #1d5fd6; background: #cfe0fb; font-size: 20px; }
+.cell.mine-1 { color: #d62a2a; background: #fbd3d3; font-size: 20px; }
+.cell.mine-unclaimed { background: #e8e8e8; font-size: 15px; }
+
+/* ── 終局列 ── */
+.overlay-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.overlay-bar .win { color: #1b8a3a; font-size: 18px; }
+.overlay-bar .lose { color: #c0392b; font-size: 18px; }
+.hint { color: #777; font-size: 13px; }
+.notice { color: #b35900; font-weight: 600; }
+.error { color: #c0392b; font-weight: 600; }

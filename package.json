@@ -1,0 +1,15 @@
+{
+  "name": "msn-mine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MSN Minesweeper Flags 對戰踩地雷 POC",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

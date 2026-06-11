@@ -44,11 +44,20 @@ npm run test:e2e    # 端對端測試：完整對局 + 斷線重連（e2e.js 需
 sessionStorage，刷新頁面或網路恢復後自動帶完整棋盤快照回到對局。逾時未歸隊則
 通知對手並解散房間。
 
-## 部署到 GCP VM
+## 部署（GCP VM「wisp」+ Docker + Cloudflare Tunnel）
+
+正式站：https://mineduel.miao-bao.cc
+
+架構：Docker 容器綁 `127.0.0.1:8090` → cloudflared tunnel（`/etc/cloudflared/config.yml`
+的 ingress 規則 `mineduel.miao-bao.cc → http://localhost:8090`）→ Cloudflare DNS。
+VM 不開對外 port。伺服器每 30 秒 ws ping 保活（Cloudflare 會切斷閒置 100 秒的連線）。
+
+更新部署：
 
 ```bash
-cd web && npm run build && cd ..
-PORT=3000 node server.js   # 或交給 systemd / pm2，前面可掛 nginx 反代（記得開 WebSocket upgrade）
+rsync -az --delete --exclude node_modules --exclude web/node_modules \
+  --exclude web/dist --exclude .git ./ wisp:~/msn-mine/
+ssh wisp 'cd ~/msn-mine && docker compose up -d --build'
 ```
 
 ## Roadmap

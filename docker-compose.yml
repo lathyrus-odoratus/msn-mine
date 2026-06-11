@@ -1,0 +1,7 @@
+services:
+  mine:
+    build: .
+    container_name: msn-mine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:3000" # 只綁 localhost，對外一律走 cloudflared tunnel

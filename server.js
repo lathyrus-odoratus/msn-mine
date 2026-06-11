@@ -93,9 +93,25 @@ function startGame(room) {
   });
 }
 
+// Cloudflare 會切斷閒置 100 秒的連線，每 30 秒 ping 一次保活；
+// 同時靠 pong 偵測悄悄死掉的連線，及時釋放座位進入重連寬限期
+const KEEPALIVE_MS = 30000;
+setInterval(() => {
+  for (const c of wss.clients) {
+    if (c.isAlive === false) {
+      c.terminate();
+      continue;
+    }
+    c.isAlive = false;
+    c.ping();
+  }
+}, KEEPALIVE_MS);
+
 wss.on('connection', (ws) => {
   ws.room = null;
   ws.seat = null;
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', (raw) => {
     let msg;

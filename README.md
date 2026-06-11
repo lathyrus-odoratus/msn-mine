@@ -1,5 +1,8 @@
 # msn-mine — MSN 對戰踩地雷（Minesweeper Flags）POC
 
+> 🤖 本專案使用 **Claude Fable 5**（`claude-fable-5`）製作——從玩法討論、技術選型、
+> 實作、測試到部署上線。開發過程的問答與決策紀錄見 [CONVERSATIONS.md](CONVERSATIONS.md)。
+
 仿 MSN Messenger 經典對戰踩地雷的網頁小遊戲：16×16 棋盤埋 51 顆雷，兩人輪流點擊，
 **點到雷得 1 分並續手**，點到空格/數字換對手，先搶到 **26 顆雷**獲勝。
 

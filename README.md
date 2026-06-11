@@ -35,8 +35,14 @@ npm start
 
 ```bash
 npm test            # 遊戲核心邏輯單元測試
-node test/e2e.js    # 端對端煙霧測試（需先 npm start）
+npm run test:e2e    # 端對端測試：完整對局 + 斷線重連（e2e.js 需先 npm start）
 ```
+
+## 斷線重連
+
+玩家斷線後伺服器保留房間 `GRACE_MS`（預設 60 秒）等待重連；前端把座位 token 存在
+sessionStorage，刷新頁面或網路恢復後自動帶完整棋盤快照回到對局。逾時未歸隊則
+通知對手並解散房間。
 
 ## 部署到 GCP VM
 
@@ -48,5 +54,5 @@ PORT=3000 node server.js   # 或交給 systemd / pm2，前面可掛 nginx 反代
 ## Roadmap
 
 - [ ] AI 對手（POC 跑通後）
-- [ ] 斷線重連
+- [x] 斷線重連
 - [ ] 音效 / 爆雷動畫

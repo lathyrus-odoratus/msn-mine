@@ -2,11 +2,13 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { createGame, click, unclaimedMines, WIDTH, HEIGHT, MINE_COUNT, WIN_TARGET } from './lib/game.js';
+import { createGame, click, snapshot, unclaimedMines, WIDTH, HEIGHT, MINE_COUNT, WIN_TARGET } from './lib/game.js';
 
 const PORT = process.env.PORT || 3000;
+const GRACE_MS = Number(process.env.GRACE_MS || 60000); // 斷線後保留房間的寬限時間
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, 'web', 'dist');
 
@@ -43,8 +45,19 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server, path: '/ws' });
 
-// code -> { code, players: [ws|null, ws|null], names: [string, string], game, rematch: [bool, bool] }
+// code -> { code, players: [ws|null, ws|null], names, game, rematch, tokens: [string, string], timers: [Timer|null, Timer|null] }
 const rooms = new Map();
+// 重連 token -> { room, seat }
+const tokens = new Map();
+
+const newToken = () => crypto.randomBytes(16).toString('hex');
+
+function destroyRoom(room) {
+  for (const t of room.timers) if (t) clearTimeout(t);
+  for (const tk of room.tokens) if (tk) tokens.delete(tk);
+  for (const p of room.players) if (p) p.room = null;
+  rooms.delete(room.code);
+}
 
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆字元
 function newCode() {
@@ -70,6 +83,7 @@ function startGame(room) {
     send(ws, {
       type: 'start',
       you: i,
+      token: room.tokens[i],
       names: room.names,
       turn: room.game.turn,
       scores: room.game.scores,
@@ -89,11 +103,21 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'create') {
       const code = newCode();
-      const room = { code, players: [ws, null], names: [String(msg.name || '玩家1').slice(0, 12), ''], game: null, rematch: [false, false] };
+      const room = {
+        code,
+        players: [ws, null],
+        names: [String(msg.name || '玩家1').slice(0, 12), ''],
+        game: null,
+        rematch: [false, false],
+        tokens: [newToken(), newToken()],
+        timers: [null, null],
+      };
       rooms.set(code, room);
+      tokens.set(room.tokens[0], { room, seat: 0 });
+      tokens.set(room.tokens[1], { room, seat: 1 });
       ws.room = room;
       ws.seat = 0;
-      send(ws, { type: 'created', code });
+      send(ws, { type: 'created', code, token: room.tokens[0] });
       return;
     }
 
@@ -106,6 +130,47 @@ wss.on('connection', (ws) => {
       ws.room = room;
       ws.seat = 1;
       startGame(room);
+      return;
+    }
+
+    if (msg.type === 'rejoin') {
+      const entry = tokens.get(String(msg.token || ''));
+      if (!entry) return send(ws, { type: 'error', code: 'rejoin_failed', message: '房間已結束' });
+      const { room, seat } = entry;
+      // 踢掉殘留的舊連線（例如重複分頁）
+      const old = room.players[seat];
+      if (old && old !== ws) {
+        old.room = null;
+        old.terminate();
+      }
+      if (room.timers[seat]) {
+        clearTimeout(room.timers[seat]);
+        room.timers[seat] = null;
+      }
+      room.players[seat] = ws;
+      ws.room = room;
+      ws.seat = seat;
+
+      if (!room.game) {
+        // 還在等待室就斷線重連：回到等待畫面
+        send(ws, { type: 'created', code: room.code, token: room.tokens[seat] });
+      } else {
+        send(ws, {
+          type: 'rejoined',
+          you: seat,
+          token: room.tokens[seat],
+          names: room.names,
+          turn: room.game.turn,
+          scores: room.game.scores,
+          winner: room.game.winner,
+          width: WIDTH, height: HEIGHT,
+          mineCount: MINE_COUNT, winTarget: WIN_TARGET,
+          reveals: snapshot(room.game),
+          remaining: room.game.winner !== null ? unclaimedMines(room.game) : [],
+          opponentWantsRematch: room.rematch[1 - seat],
+        });
+        send(room.players[1 - seat], { type: 'opponent_reconnected' });
+      }
       return;
     }
 
@@ -141,11 +206,14 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     const room = ws.room;
-    if (!room) return;
-    const other = room.players[1 - ws.seat];
-    send(other, { type: 'opponent_left' });
-    if (other) other.room = null;
-    rooms.delete(room.code);
+    if (!room || room.players[ws.seat] !== ws) return; // 已被重連的新連線取代
+    room.players[ws.seat] = null;
+    send(room.players[1 - ws.seat], { type: 'opponent_disconnected', graceMs: GRACE_MS });
+    // 寬限期內等重連，逾時才解散房間
+    room.timers[ws.seat] = setTimeout(() => {
+      send(room.players[1 - ws.seat], { type: 'opponent_left' });
+      destroyRoom(room);
+    }, GRACE_MS);
   });
 });
 

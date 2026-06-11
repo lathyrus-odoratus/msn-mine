@@ -1,8 +1,11 @@
 <script setup>
-import { state, requestRematch, backToLobby } from './useGame.js';
+import { onMounted } from 'vue';
+import { state, requestRematch, backToLobby, resumeIfPossible } from './useGame.js';
 import Lobby from './components/Lobby.vue';
 import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
+
+onMounted(resumeIfPossible);
 </script>
 
 <template>
@@ -13,6 +16,9 @@ import ScorePanel from './components/ScorePanel.vue';
     </div>
 
     <div class="content">
+      <div v-if="state.reconnecting" class="banner">🔌 連線中斷，重新連線中…</div>
+      <div v-else-if="state.opponentOffline" class="banner">⏳ 對手斷線了，等待重連…</div>
+
       <Lobby v-if="state.phase === 'lobby'" />
 
       <div v-else-if="state.phase === 'waiting'" class="waiting">

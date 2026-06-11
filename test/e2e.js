@@ -100,10 +100,10 @@ const re1 = await recv(a);
 const re2 = await recv(b);
 assert(re1.type === 'start' && re2.type === 'start', '雙方同意後重新開局');
 
-// 斷線通知
+// 斷線通知（寬限期內先收到 disconnected；逾時解散的情境由 test/reconnect.e2e.js 覆蓋）
 a.ws.close();
 const left = await recv(b);
-assert(left.type === 'opponent_left', 'Alice 離線後 Bob 收到通知');
+assert(left.type === 'opponent_disconnected', 'Alice 離線後 Bob 收到斷線通知');
 
 console.log('\n全部通過 🎉');
 b.ws.close();

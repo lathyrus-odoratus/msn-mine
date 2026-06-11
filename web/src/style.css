@@ -177,4 +177,13 @@ button.secondary {
 .overlay-bar .lose { color: #c0392b; font-size: 18px; }
 .hint { color: #777; font-size: 13px; }
 .notice { color: #b35900; font-weight: 600; }
+.banner {
+  background: #fff3cd;
+  border: 1px solid #e0a800;
+  color: #7a5a00;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 14px;
+}
 .error { color: #c0392b; font-weight: 600; }

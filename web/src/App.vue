@@ -5,8 +5,11 @@ import Lobby from './components/Lobby.vue';
 import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
 import Taunts from './components/Taunts.vue';
+import Help from './components/Help.vue';
 
 onMounted(resumeIfPossible);
+
+const showHelp = ref(false);
 
 const editingName = ref(false);
 const nameDraft = ref('');
@@ -35,7 +38,8 @@ async function copyLink() {
   <div class="window">
     <div class="titlebar">
       <span class="titlebar-icon">💣</span>
-      <span>對戰踩地雷 — Minesweeper Flags</span>
+      <span class="titlebar-name">對戰踩地雷 — Minesweeper Flags</span>
+      <button class="titlebar-help" @click="showHelp = true">❔ 玩法</button>
     </div>
 
     <div class="content">
@@ -102,5 +106,7 @@ async function copyLink() {
 
       <p v-if="state.error" class="error">{{ state.error }}</p>
     </div>
+
+    <Help v-if="showHelp" @close="showHelp = false" />
   </div>
 </template>

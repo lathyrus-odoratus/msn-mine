@@ -23,6 +23,8 @@ export const state = reactive({
   opponentWantsRematch: false,
   rematchSent: false,
   reconnecting: false,
+  isSpectator: false, // 唯讀觀戰模式
+  spectatorCount: 0, // 目前觀戰人數
 });
 
 let ws = null;
@@ -62,8 +64,9 @@ function ensureConnected() {
     ws.onclose = () => {
       ws = null;
       if (intentionalClose) return;
-      // 遊戲中意外斷線 → 自動嘗試重連
-      if (state.phase !== 'lobby') attemptRejoin();
+      // 觀戰者沒有 token，用 URL 房號重新觀戰；玩家走 token 重連
+      if (state.isSpectator) reSpectate();
+      else if (state.phase !== 'lobby') attemptRejoin();
     };
   });
 }
@@ -126,6 +129,41 @@ function handleMessage(msg) {
       state.phase = msg.winner !== null ? 'over' : 'playing';
       break;
     }
+    case 'spectate_state': {
+      // 滿房自動轉觀戰 / 觀戰者刷新：載入當前局面（唯讀）
+      const firstEntry = !state.isSpectator;
+      state.isSpectator = true;
+      state.you = null;
+      state.names = msg.names;
+      state.turn = msg.turn;
+      state.scores = [...msg.scores];
+      state.width = msg.width;
+      state.height = msg.height;
+      state.mineCount = msg.mineCount;
+      state.winTarget = msg.winTarget;
+      state.spectatorCount = msg.spectatorCount || 0;
+      state.board = emptyBoard();
+      for (const r of msg.reveals) {
+        state.board[r.y][r.x] = r.mine ? { mine: true, owner: r.owner } : { mine: false, adj: r.adj };
+      }
+      for (const r of msg.remaining) {
+        state.board[r.y][r.x] = { mine: true, owner: null };
+      }
+      state.winner = msg.winner;
+      state.lastMove = null;
+      state.reconnecting = false;
+      state.error = '';
+      if (firstEntry) state.notice = '房間已滿，你正在觀戰這局';
+      state.phase = msg.winner !== null ? 'over' : 'playing';
+      break;
+    }
+    case 'spectators':
+      state.spectatorCount = msg.count;
+      break;
+    case 'room_closed':
+      backToLobby();
+      state.notice = '房間已結束';
+      break;
     case 'update':
       for (const r of msg.reveals) {
         state.board[r.y][r.x] = r.mine ? { mine: true, owner: r.owner } : { mine: false, adj: r.adj };
@@ -197,6 +235,22 @@ async function attemptRejoin() {
   }
 }
 
+// 觀戰者斷線後用 URL 房號重新觀戰（滿房仍會被導回觀戰）
+async function reSpectate() {
+  const code = parseInviteCode();
+  if (!code) return;
+  const name = localStorage.getItem('mine-name') || '觀眾';
+  for (let i = 0; i < 20 && state.isSpectator; i++) {
+    try {
+      await ensureConnected();
+      ws.send(JSON.stringify({ type: 'join', code, name }));
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+}
+
 // 頁面載入時：先看自己有沒有上一局的 token（同分頁刷新就回房間）；
 // 否則若網址是 /room/ABCD（被邀請進站），帶出房號——有暱稱就直接加入，
 // 沒暱稱就把房號預填到大廳讓他填名字再加入。
@@ -223,6 +277,7 @@ export async function joinRoom(code, name) {
 
 export function clickCell(x, y) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (state.isSpectator) return; // 觀戰唯讀
   if (state.phase !== 'playing' || state.turn !== state.you) return;
   if (state.board[y][x] !== null) return;
   ws.send(JSON.stringify({ type: 'click', x, y }));
@@ -247,6 +302,8 @@ export function backToLobby() {
   state.notice = '';
   state.code = '';
   state.inviteCode = '';
+  state.isSpectator = false;
+  state.spectatorCount = 0;
   state.opponentLeft = false;
   state.opponentOffline = false;
   state.reconnecting = false;

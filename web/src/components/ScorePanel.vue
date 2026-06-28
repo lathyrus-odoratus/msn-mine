@@ -20,7 +20,8 @@ const myTurn = computed(() => state.phase === 'playing' && state.turn === state.
       <span class="player-score">{{ state.scores[p] }}</span>
     </div>
     <div class="turn-hint" v-if="state.phase === 'playing'">
-      {{ myTurn ? '輪到你了！' : '對手思考中…' }}
+      <template v-if="state.isSpectator">輪到 {{ state.names[state.turn] }}</template>
+      <template v-else>{{ myTurn ? '輪到你了！' : '對手思考中…' }}</template>
     </div>
   </div>
 </template>

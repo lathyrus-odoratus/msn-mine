@@ -29,6 +29,9 @@ async function copyLink() {
     <div class="content">
       <div v-if="state.reconnecting" class="banner">🔌 連線中斷，重新連線中…</div>
       <div v-else-if="state.opponentOffline" class="banner">⏳ 對手斷線了，等待重連…</div>
+      <div v-if="state.isSpectator && state.phase !== 'lobby'" class="spectator-bar">
+        👁 觀戰中（唯讀）<span v-if="state.spectatorCount">・共 {{ state.spectatorCount }} 人觀戰</span>
+      </div>
 
       <Lobby v-if="state.phase === 'lobby'" />
 
@@ -42,6 +45,9 @@ async function copyLink() {
       </div>
 
       <template v-else>
+        <div v-if="!state.isSpectator && state.spectatorCount" class="watchers">
+          👁 {{ state.spectatorCount }} 人觀戰中
+        </div>
         <ScorePanel />
         <Board />
 

@@ -56,6 +56,7 @@ function destroyRoom(room) {
   for (const t of room.timers) if (t) clearTimeout(t);
   for (const tk of room.tokens) if (tk) tokens.delete(tk);
   for (const p of room.players) if (p) p.room = null;
+  for (const s of room.spectators) { send(s, { type: 'room_closed' }); s.room = null; }
   rooms.delete(room.code);
 }
 
@@ -76,6 +77,43 @@ function broadcast(room, msg) {
   for (const p of room.players) send(p, msg);
 }
 
+// 廣播給玩家 + 觀戰者（盤面更新、終局、人數變動都要全房同步）
+function broadcastAll(room, msg) {
+  for (const p of room.players) send(p, msg);
+  for (const s of room.spectators) send(s, msg);
+}
+
+// 觀戰者進場 / 離場時，把最新人數推給全房（玩家會看到「👁 N 人觀戰」）
+function broadcastSpectatorCount(room) {
+  broadcastAll(room, { type: 'spectators', count: room.spectators.length });
+}
+
+// 觀戰者要看的當前局面：跟重連快照同格式，但沒有座位、沒有 token（唯讀）
+function spectateState(room) {
+  const g = room.game;
+  return {
+    type: 'spectate_state',
+    names: room.names,
+    turn: g ? g.turn : 0,
+    scores: g ? g.scores : [0, 0],
+    winner: g ? g.winner : null,
+    width: WIDTH, height: HEIGHT,
+    mineCount: MINE_COUNT, winTarget: WIN_TARGET,
+    reveals: g ? snapshot(g) : [],
+    remaining: g && g.winner !== null ? unclaimedMines(g) : [],
+    spectatorCount: room.spectators.length,
+  };
+}
+
+function addSpectator(ws, room) {
+  ws.room = room;
+  ws.seat = null;
+  ws.isSpectator = true;
+  room.spectators.push(ws);
+  send(ws, spectateState(room));
+  broadcastSpectatorCount(room);
+}
+
 function startGame(room) {
   room.game = createGame();
   room.rematch = [false, false];
@@ -91,6 +129,8 @@ function startGame(room) {
       mineCount: MINE_COUNT, winTarget: WIN_TARGET,
     });
   });
+  // 觀戰者也要看到新一局的空盤面
+  for (const s of room.spectators) send(s, spectateState(room));
 }
 
 // Cloudflare 會切斷閒置 100 秒的連線，每 30 秒 ping 一次保活；
@@ -110,6 +150,7 @@ setInterval(() => {
 wss.on('connection', (ws) => {
   ws.room = null;
   ws.seat = null;
+  ws.isSpectator = false;
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
@@ -127,6 +168,7 @@ wss.on('connection', (ws) => {
         rematch: [false, false],
         tokens: [newToken(), newToken()],
         timers: [null, null],
+        spectators: [],
       };
       rooms.set(code, room);
       tokens.set(room.tokens[0], { room, seat: 0 });
@@ -140,7 +182,7 @@ wss.on('connection', (ws) => {
     if (msg.type === 'join') {
       const room = rooms.get(String(msg.code || '').toUpperCase().trim());
       if (!room) return send(ws, { type: 'error', message: '找不到這個房間' });
-      if (room.players[1]) return send(ws, { type: 'error', message: '房間已滿' });
+      if (room.players[1]) return addSpectator(ws, room); // 滿房 → 同一條連結自動轉觀戰
       room.players[1] = ws;
       room.names[1] = String(msg.name || '玩家2').slice(0, 12);
       ws.room = room;
@@ -192,13 +234,14 @@ wss.on('connection', (ws) => {
 
     const room = ws.room;
     if (!room || !room.game) return;
+    if (ws.isSpectator) return; // 觀戰者唯讀：忽略 click / rematch
 
     if (msg.type === 'click') {
       const result = click(room.game, ws.seat, msg.x | 0, msg.y | 0);
       if (!result) return;
-      broadcast(room, { type: 'update', by: ws.seat, ...result });
+      broadcastAll(room, { type: 'update', by: ws.seat, ...result });
       if (result.winner !== null) {
-        broadcast(room, {
+        broadcastAll(room, {
           type: 'gameover',
           winner: result.winner,
           scores: result.scores,
@@ -222,7 +265,14 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     const room = ws.room;
-    if (!room || room.players[ws.seat] !== ws) return; // 已被重連的新連線取代
+    if (!room) return;
+    if (ws.isSpectator) {
+      const i = room.spectators.indexOf(ws);
+      if (i !== -1) room.spectators.splice(i, 1);
+      broadcastSpectatorCount(room);
+      return; // 觀戰者離場只更新人數，不動房間
+    }
+    if (room.players[ws.seat] !== ws) return; // 已被重連的新連線取代
     room.players[ws.seat] = null;
     send(room.players[1 - ws.seat], { type: 'opponent_disconnected', graceMs: GRACE_MS });
     // 寬限期內等重連，逾時才解散房間

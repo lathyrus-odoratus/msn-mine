@@ -202,3 +202,13 @@ button.secondary {
   font-size: 14px;
 }
 .error { color: #c0392b; font-weight: 600; }
+.spectator-bar {
+  background: #eae0ff;
+  border: 1px solid #7a5cd6;
+  color: #4b2fa0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.watchers { color: #6a4fc0; font-weight: 600; font-size: 13px; }

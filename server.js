@@ -18,27 +18,43 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
+// index.html 一律 no-cache（每次載入都驗證），避免部署後瀏覽器拿著舊殼去要已刪除的 bundle
+function sendIndex(res) {
+  fs.readFile(path.join(DIST, 'index.html'), (err, html) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('Frontend not built. Run: cd web && npm run build');
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' });
+    res.end(html);
+  });
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     return res.end('ok');
   }
-  // 服務前端建置產物；找不到檔案 fallback 到 index.html
-  let file = path.join(DIST, path.normalize(req.url.split('?')[0]).replace(/^(\.\.[/\\])+/, ''));
-  if (!file.startsWith(DIST) || req.url === '/') file = path.join(DIST, 'index.html');
+  const pathname = path.normalize(req.url.split('?')[0]).replace(/^(\.\.[/\\])+/, '');
+  if (pathname === '/' || pathname === '.') return sendIndex(res);
+
+  const file = path.join(DIST, pathname);
+  if (!file.startsWith(DIST)) return sendIndex(res); // 越界保護
+
   fs.readFile(file, (err, data) => {
     if (err) {
-      fs.readFile(path.join(DIST, 'index.html'), (err2, html) => {
-        if (err2) {
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          return res.end('Frontend not built. Run: cd web && npm run build');
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(html);
-      });
-      return;
+      // 有副檔名 = 資產請求：找不到就回實在的 404，絕不把 index.html 當 JS/CSS 餵出去
+      // （舊殼會「乾淨地壞掉」而非詭異 MIME 錯誤）；無副檔名 = 前端路由，fallback 到 index.html
+      if (path.extname(pathname)) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Not found');
+      }
+      return sendIndex(res);
     }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    const headers = { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' };
+    // 帶 hash 的資產內容不變，可永久快取
+    if (pathname.startsWith('/assets/')) headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+    res.writeHead(200, headers);
     res.end(data);
   });
 });

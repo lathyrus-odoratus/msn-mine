@@ -153,7 +153,8 @@ function handleMessage(msg) {
       state.lastMove = null;
       state.reconnecting = false;
       state.error = '';
-      if (firstEntry) state.notice = '房間已滿，你正在觀戰這局';
+      if (!msg.started) state.notice = '對局尚未開始，等待玩家入座…';
+      else if (firstEntry) state.notice = '你正在觀戰這局';
       state.phase = msg.winner !== null ? 'over' : 'playing';
       break;
     }
@@ -235,15 +236,14 @@ async function attemptRejoin() {
   }
 }
 
-// 觀戰者斷線後用 URL 房號重新觀戰（滿房仍會被導回觀戰）
+// 觀戰者斷線後用 URL 房號重新觀戰（明確送 spectate，不會誤補空位變玩家）
 async function reSpectate() {
   const code = parseInviteCode();
   if (!code) return;
-  const name = localStorage.getItem('mine-name') || '觀眾';
   for (let i = 0; i < 20 && state.isSpectator; i++) {
     try {
       await ensureConnected();
-      ws.send(JSON.stringify({ type: 'join', code, name }));
+      ws.send(JSON.stringify({ type: 'spectate', code }));
       return;
     } catch {
       await new Promise((r) => setTimeout(r, 1500));
@@ -258,9 +258,8 @@ export function resumeIfPossible() {
   if (sessionStorage.getItem(TOKEN_KEY)) { attemptRejoin(); return; }
   const code = parseInviteCode();
   if (!code) return;
+  // 不自動入座——讓使用者在大廳明確選「加入對戰」或「觀戰」
   state.inviteCode = code;
-  const name = localStorage.getItem('mine-name');
-  if (name) joinRoom(code, name);
 }
 
 export async function createRoom(name) {
@@ -273,6 +272,12 @@ export async function joinRoom(code, name) {
   state.error = '';
   await ensureConnected();
   ws.send(JSON.stringify({ type: 'join', code, name }));
+}
+
+export async function spectateRoom(code) {
+  state.error = '';
+  await ensureConnected();
+  ws.send(JSON.stringify({ type: 'spectate', code }));
 }
 
 export function clickCell(x, y) {

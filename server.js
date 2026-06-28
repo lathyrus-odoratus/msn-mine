@@ -93,6 +93,7 @@ function spectateState(room) {
   const g = room.game;
   return {
     type: 'spectate_state',
+    started: !!g, // 對局是否已開始（觀戰一個還在等人的房間時為 false）
     names: room.names,
     turn: g ? g.turn : 0,
     scores: g ? g.scores : [0, 0],
@@ -189,6 +190,13 @@ wss.on('connection', (ws) => {
       ws.seat = 1;
       startGame(room);
       return;
+    }
+
+    if (msg.type === 'spectate') {
+      // 主動觀戰：不管座位空不空都只看不玩
+      const room = rooms.get(String(msg.code || '').toUpperCase().trim());
+      if (!room) return send(ws, { type: 'error', message: '找不到這個房間' });
+      return addSpectator(ws, room);
     }
 
     if (msg.type === 'rejoin') {

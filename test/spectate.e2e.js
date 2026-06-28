@@ -80,7 +80,30 @@ c.ws.close();
 const cnt0 = await recv(a);
 assert(cnt0.type === 'spectators' && cnt0.count === 0, '觀戰者離場後玩家收到人數=0');
 
+// 主動觀戰：座位還空著（只有 1 人）時送 spectate 也只看不玩
+const d = await connect('D');
+const e = await connect('E');
+send(d, { type: 'create', name: 'Dave' });
+const room2 = await recv(d);
+send(e, { type: 'spectate', code: room2.code }); // 座位 1 還空著
+const spec2 = await recv(e);
+assert(spec2.type === 'spectate_state', '座位空著時主動 spectate → 仍是觀戰（不佔座位）');
+assert(spec2.started === false, '對局尚未開始時 started=false');
+await recv(d); // Dave 收到觀戰人數=1
+await recv(e); // 觀戰者 E 自己也收到人數廣播，先消化掉
+// 真正的玩家加入後，座位仍由玩家補上、觀戰者看到對局開始
+const f = await connect('F');
+send(f, { type: 'join', code: room2.code, name: 'Frank' });
+const dStart = await recv(d);
+assert(dStart.type === 'start' && dStart.you === 0, '空座位仍保留給真正加入的玩家');
+await recv(f); // Frank start
+const specStart = await recv(e);
+assert(specStart.type === 'spectate_state' && specStart.started === true, '觀戰者在對局開始時收到已開局盤面');
+
 console.log('\n觀戰測試全部通過 🎉');
 a.ws.close();
 b.ws.close();
+d.ws.close();
+e.ws.close();
+f.ws.close();
 process.exit(0);

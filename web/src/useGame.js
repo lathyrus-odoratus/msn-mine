@@ -6,6 +6,7 @@ export const state = reactive({
   error: '',
   notice: '',
   code: '',
+  inviteCode: '', // 從 /room/ABCD 連結進站時帶入的房號
   you: null, // 0 | 1
   names: ['', ''],
   turn: 0,
@@ -35,6 +36,19 @@ const clearToken = () => sessionStorage.removeItem(TOKEN_KEY);
 function wsUrl() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   return `${proto}://${location.host}/ws`;
+}
+
+// 路由：/room/ABCD —— 房號就是分享網址，方便丟連結邀人
+const roomPath = (code) => `/room/${code}`;
+function parseInviteCode() {
+  const m = location.pathname.match(/^\/room\/([A-Za-z0-9]{4})$/i);
+  return m ? m[1].toUpperCase() : '';
+}
+function setUrl(path) {
+  if (location.pathname !== path) history.pushState(null, '', path);
+}
+export function roomLink(code) {
+  return `${location.origin}${roomPath(code)}`;
 }
 
 function ensureConnected() {
@@ -75,6 +89,7 @@ function handleMessage(msg) {
     case 'created':
       state.code = msg.code;
       if (msg.token) saveToken(msg.token);
+      setUrl(roomPath(msg.code)); // 換成可分享的房間網址
       state.reconnecting = false;
       state.phase = 'waiting';
       break;
@@ -182,9 +197,16 @@ async function attemptRejoin() {
   }
 }
 
-// 頁面載入時：若有上一局的 token 就嘗試回到房間
+// 頁面載入時：先看自己有沒有上一局的 token（同分頁刷新就回房間）；
+// 否則若網址是 /room/ABCD（被邀請進站），帶出房號——有暱稱就直接加入，
+// 沒暱稱就把房號預填到大廳讓他填名字再加入。
 export function resumeIfPossible() {
-  if (sessionStorage.getItem(TOKEN_KEY)) attemptRejoin();
+  if (sessionStorage.getItem(TOKEN_KEY)) { attemptRejoin(); return; }
+  const code = parseInviteCode();
+  if (!code) return;
+  state.inviteCode = code;
+  const name = localStorage.getItem('mine-name');
+  if (name) joinRoom(code, name);
 }
 
 export async function createRoom(name) {
@@ -219,10 +241,12 @@ export function backToLobby() {
     ws.close();
     ws = null;
   }
+  setUrl('/');
   state.phase = 'lobby';
   state.error = '';
   state.notice = '';
   state.code = '';
+  state.inviteCode = '';
   state.opponentLeft = false;
   state.opponentOffline = false;
   state.reconnecting = false;

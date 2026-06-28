@@ -1,9 +1,9 @@
 <script setup>
 import { ref } from 'vue';
-import { createRoom, joinRoom } from '../useGame.js';
+import { state, createRoom, joinRoom } from '../useGame.js';
 
 const name = ref(localStorage.getItem('mine-name') || '');
-const code = ref('');
+const code = ref(state.inviteCode || ''); // 被邀請進站時預填房號
 
 function remember() {
   localStorage.setItem('mine-name', name.value);
@@ -23,6 +23,9 @@ function onJoin() {
 
 <template>
   <div class="lobby">
+    <p v-if="state.inviteCode" class="invite-banner">
+      🎮 你被邀請加入房間 <strong>{{ state.inviteCode }}</strong>，輸入暱稱即可開打！
+    </p>
     <p class="lobby-intro">點到地雷得 1 分並可繼續點；點到空格換對手。先搶到 26 顆地雷獲勝！</p>
 
     <label>

@@ -1,11 +1,22 @@
 <script setup>
-import { onMounted } from 'vue';
-import { state, requestRematch, backToLobby, resumeIfPossible } from './useGame.js';
+import { onMounted, ref } from 'vue';
+import { state, requestRematch, backToLobby, resumeIfPossible, roomLink } from './useGame.js';
 import Lobby from './components/Lobby.vue';
 import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
 
 onMounted(resumeIfPossible);
+
+const copied = ref(false);
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(roomLink(state.code));
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 1500);
+  } catch {
+    copied.value = false;
+  }
+}
 </script>
 
 <template>
@@ -22,8 +33,11 @@ onMounted(resumeIfPossible);
       <Lobby v-if="state.phase === 'lobby'" />
 
       <div v-else-if="state.phase === 'waiting'" class="waiting">
-        <p>房間已建立，把房號告訴對手：</p>
+        <p>房間已建立，把連結或房號傳給對手：</p>
         <div class="room-code">{{ state.code }}</div>
+        <button class="copy-link" @click="copyLink">
+          {{ copied ? '✅ 已複製連結' : '🔗 複製邀請連結' }}
+        </button>
         <p class="hint">等待對手加入中…</p>
       </div>
 

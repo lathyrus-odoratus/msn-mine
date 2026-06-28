@@ -32,6 +32,7 @@ export const state = reactive({
   spectatorNames: [], // 觀戰者名單
   myName: '', // 自己目前的暱稱（觀戰者為菜市場名字；可改名）
   taunts: [], // 最近的嗆聲泡泡（會自動消失）
+  styles: [{ color: '#1d5fd6', seed: 7 }, { color: '#d62a2a', seed: 13 }], // 兩位玩家的旗子樣式
 });
 
 let ws = null;
@@ -86,6 +87,7 @@ function applyMeta(msg) {
   state.you = msg.you;
   state.names = msg.names;
   state.myName = msg.names[msg.you];
+  if (msg.styles) state.styles = msg.styles;
   state.turn = msg.turn;
   state.scores = [...msg.scores];
   state.width = msg.width;
@@ -151,6 +153,7 @@ function handleMessage(msg) {
       state.winTarget = msg.winTarget;
       state.spectatorNames = msg.spectatorNames || [];
       state.spectatorCount = state.spectatorNames.length;
+      if (msg.styles) state.styles = msg.styles;
       if (msg.yourName) state.myName = msg.yourName;
       state.board = emptyBoard();
       for (const r of msg.reveals) {
@@ -288,17 +291,17 @@ export function resumeIfPossible() {
   state.inviteCode = code;
 }
 
-export async function createRoom(name, preset) {
+export async function createRoom(name, preset, style) {
   state.error = '';
   state.myName = name; // 等待室就先有暱稱（created 訊息不帶名字）
   await ensureConnected();
-  ws.send(JSON.stringify({ type: 'create', name, preset }));
+  ws.send(JSON.stringify({ type: 'create', name, preset, style }));
 }
 
-export async function joinRoom(code, name) {
+export async function joinRoom(code, name, style) {
   state.error = '';
   await ensureConnected();
-  ws.send(JSON.stringify({ type: 'join', code, name }));
+  ws.send(JSON.stringify({ type: 'join', code, name, style }));
 }
 
 export async function spectateRoom(code) {

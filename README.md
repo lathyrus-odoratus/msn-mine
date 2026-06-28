@@ -94,7 +94,8 @@ ssh wisp 'cd ~/msn-mine && docker compose up -d --build'
 - [x] 嗆聲表情（快捷 taunt：玩家與觀戰者皆可發、附名字、觀戰者標 👁、防洗版冷卻）
 - [ ] Chat（房間內自由輸入聊天；陌生人開放後有言論治理問題，留意）
 - [x] 路由（/room/ABCD 邀請連結；觀戰、回放分享的前置）
-- [ ] 自訂旗子 emoji（localStorage 保存；撞旗時用底色/邊框區分敵我）
+- [x] 自訂旗子（滿版方塊取代 ⚑ 以免跟數字 1 混淆；自選顏色 + 程式化 identicon 花紋可重抽；
+      localStorage 保存、跟著名字一起廣播給對手與觀戰者）
 - [ ] 對局紀錄儲存・輕量版（每局事件流寫進 Postgres，replay UI 做之前先攢數據；個人戰績綁 localStorage 匿名 ID，日後登入可認領）
 
 ### 第二層：內容與深度（閘門：朋友圈每週還有人自發開局）

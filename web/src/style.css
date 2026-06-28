@@ -144,6 +144,18 @@ body {
 }
 .size-opt:has(input:checked) { border-color: #2a6fd6; background: #eef5ff; }
 .size-opt small { color: #888; margin-left: 6px; }
+.flag-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.flag-title { font-size: 13px; color: #333; font-weight: 600; }
+.flag-preview {
+  width: 32px; height: 32px;
+  border: 1px solid #999; border-radius: 4px;
+  background-size: 100% 100%;
+}
+.flag-color {
+  width: 40px; height: 32px; padding: 0;
+  border: 1px solid #999; border-radius: 4px; cursor: pointer; background: none;
+}
+.flag-reroll { padding: 6px 10px; font-size: 13px; }
 .code-input { width: 80px; text-transform: uppercase; text-align: center; letter-spacing: 2px; }
 
 input {
@@ -208,7 +220,14 @@ button.secondary {
 .player-name { font-weight: 600; font-size: 14px; color: #222; flex: 1; }
 .player-name small { color: #888; font-weight: 400; }
 .player-score { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.flag { font-size: 20px; }
+.flag-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  background-size: 100% 100%;
+  flex: none;
+}
 .turn-hint { font-size: 14px; font-weight: 600; color: #1b4fa0; }
 
 /* ── 棋盤 ── */
@@ -260,9 +279,8 @@ button.secondary {
 .n7 { color: #000000; }
 .n8 { color: #808080; }
 
-/* 旗子：藍方 / 紅方 */
-.cell.mine-0 { color: #1d5fd6; background: #cfe0fb; font-size: 20px; }
-.cell.mine-1 { color: #d62a2a; background: #fbd3d3; font-size: 20px; }
+/* 搶到的雷：滿版旗子方塊（背景圖由 inline style 提供顏色＋花紋） */
+.cell.mine-owned { border: 1px solid rgba(0, 0, 0, 0.25); }
 .cell.mine-unclaimed { background: #e8e8e8; font-size: 15px; }
 
 /* ── 終局列 ── */

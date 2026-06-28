@@ -86,6 +86,15 @@ const randomMarketName = () => pick(SURNAMES) + pick(GIVEN_NAMES);
 const TAUNT_COUNT = 5;
 const TAUNT_COOLDOWN_MS = 700; // 防洗版
 
+// 玩家旗子樣式：顏色（hex）+ 花紋 seed。伺服器只負責淨化與轉發，圖案由前端 identicon 生成
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+const DEFAULT_STYLES = [{ color: '#1d5fd6', seed: 7 }, { color: '#d62a2a', seed: 13 }];
+function sanitizeStyle(style, fallback) {
+  const color = style && HEX6.test(style.color) ? style.color : fallback.color;
+  const seed = Number.isInteger(style?.seed) && style.seed >= 0 ? style.seed : fallback.seed;
+  return { color, seed };
+}
+
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆字元
 function newCode() {
   let code;
@@ -131,6 +140,7 @@ function spectateState(room, ws) {
     scores: g ? g.scores : [0, 0],
     winner: g ? g.winner : null,
     ...dims(room.config),
+    styles: room.styles,
     reveals: g ? snapshot(g) : [],
     remaining: g && g.winner !== null ? unclaimedMines(g) : [],
     yourName: ws ? ws.name : undefined,
@@ -160,6 +170,7 @@ function startGame(room) {
       turn: room.game.turn,
       scores: room.game.scores,
       ...dims(room.config),
+      styles: room.styles,
     });
   });
   // 觀戰者也要看到新一局的空盤面
@@ -197,6 +208,7 @@ wss.on('connection', (ws) => {
       const room = {
         code,
         config: PRESETS[msg.preset] || STANDARD, // 場地大小，建房時決定
+        styles: [sanitizeStyle(msg.style, DEFAULT_STYLES[0]), DEFAULT_STYLES[1]], // 旗子樣式
         players: [ws, null],
         names: [String(msg.name || '玩家1').slice(0, 12), ''],
         game: null,
@@ -220,6 +232,7 @@ wss.on('connection', (ws) => {
       if (room.players[1]) return addSpectator(ws, room); // 滿房 → 同一條連結自動轉觀戰
       room.players[1] = ws;
       room.names[1] = String(msg.name || '玩家2').slice(0, 12);
+      room.styles[1] = sanitizeStyle(msg.style, DEFAULT_STYLES[1]);
       ws.room = room;
       ws.seat = 1;
       startGame(room);
@@ -264,6 +277,7 @@ wss.on('connection', (ws) => {
           scores: room.game.scores,
           winner: room.game.winner,
           ...dims(room.config),
+          styles: room.styles,
           reveals: snapshot(room.game),
           remaining: room.game.winner !== null ? unclaimedMines(room.game) : [],
           opponentWantsRematch: room.rematch[1 - seat],

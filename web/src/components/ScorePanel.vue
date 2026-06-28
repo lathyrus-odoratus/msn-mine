@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue';
 import { state } from '../useGame.js';
+import { identiconUri } from '../identicon.js';
 
 const myTurn = computed(() => state.phase === 'playing' && state.turn === state.you);
+const flagBg = computed(() => state.styles.map((s) => identiconUri(s.seed, s.color)));
 </script>
 
 <template>
@@ -11,9 +13,10 @@ const myTurn = computed(() => state.phase === 'playing' && state.turn === state.
       v-for="p in [0, 1]"
       :key="p"
       class="player-card"
-      :class="[`player-${p}`, { active: state.phase === 'playing' && state.turn === p }]"
+      :class="{ active: state.phase === 'playing' && state.turn === p }"
+      :style="{ color: state.styles[p].color }"
     >
-      <span class="flag" :class="`flag-${p}`">⚑</span>
+      <span class="flag-swatch" :style="{ backgroundImage: flagBg[p] }" />
       <span class="player-name">
         {{ state.names[p] }}<small v-if="state.you === p">（你）</small>
       </span>

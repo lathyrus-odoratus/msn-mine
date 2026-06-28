@@ -21,16 +21,22 @@ function onCreate() {
   createRoom(name.value || '玩家', preset.value);
 }
 
+// 邀請模式用 state.inviteCode（resumeIfPossible 在 onMounted 才設定，會晚於本元件 setup，
+// 不能依賴 setup 當下抓的 code ref）；一般模式則用房號輸入框的值
+const targetCode = () => (state.inviteCode || code.value).trim();
+
 function onJoin() {
   remember();
-  if (!code.value.trim()) return;
-  joinRoom(code.value, name.value || '玩家');
+  const c = targetCode();
+  if (!c) return;
+  joinRoom(c, name.value || '玩家');
 }
 
 function onSpectate() {
   remember();
-  if (!code.value.trim()) return;
-  spectateRoom(code.value);
+  const c = targetCode();
+  if (!c) return;
+  spectateRoom(c);
 }
 </script>
 

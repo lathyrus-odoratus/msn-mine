@@ -131,6 +131,19 @@ await recv(f); // Frank start
 const specStart = await recv(e);
 assert(specStart.type === 'spectate_state' && specStart.started === true, '觀戰者在對局開始時收到已開局盤面');
 
+// 小場設定：建房帶 preset:'small' → start 帶 12×12 / 29 雷 / 先搶 15
+const g = await connect('G');
+const h = await connect('H');
+send(g, { type: 'create', name: 'Grace', preset: 'small' });
+const gc = await recv(g);
+send(h, { type: 'join', code: gc.code, name: 'Henry' });
+const gStart = await recv(g);
+await recv(h);
+assert(gStart.width === 12 && gStart.height === 12, '小場 start 尺寸為 12×12');
+assert(gStart.mineCount === 29 && gStart.winTarget === 15, '小場 29 雷、先搶 15');
+g.ws.close();
+h.ws.close();
+
 console.log('\n觀戰測試全部通過 🎉');
 a.ws.close();
 b.ws.close();

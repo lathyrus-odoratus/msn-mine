@@ -288,11 +288,11 @@ export function resumeIfPossible() {
   state.inviteCode = code;
 }
 
-export async function createRoom(name) {
+export async function createRoom(name, preset) {
   state.error = '';
   state.myName = name; // 等待室就先有暱稱（created 訊息不帶名字）
   await ensureConnected();
-  ws.send(JSON.stringify({ type: 'create', name }));
+  ws.send(JSON.stringify({ type: 'create', name, preset }));
 }
 
 export async function joinRoom(code, name) {

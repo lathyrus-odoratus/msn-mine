@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { createGame, click, snapshot, unclaimedMines, WIDTH, HEIGHT, MINE_COUNT, WIN_TARGET } from './lib/game.js';
+import { createGame, click, snapshot, unclaimedMines, PRESETS, STANDARD } from './lib/game.js';
 
 const PORT = process.env.PORT || 3000;
 const GRACE_MS = Number(process.env.GRACE_MS || 60000); // 斷線後保留房間的寬限時間
@@ -87,6 +87,9 @@ function broadcast(room, msg) {
   for (const p of room.players) send(p, msg);
 }
 
+// 把場地尺寸攤平進各種 payload（房間自帶 config）
+const dims = (c) => ({ width: c.width, height: c.height, mineCount: c.mineCount, winTarget: c.winTarget });
+
 // 廣播給玩家 + 觀戰者（盤面更新、終局、人數變動都要全房同步）
 function broadcastAll(room, msg) {
   for (const p of room.players) send(p, msg);
@@ -111,8 +114,7 @@ function spectateState(room, ws) {
     turn: g ? g.turn : 0,
     scores: g ? g.scores : [0, 0],
     winner: g ? g.winner : null,
-    width: WIDTH, height: HEIGHT,
-    mineCount: MINE_COUNT, winTarget: WIN_TARGET,
+    ...dims(room.config),
     reveals: g ? snapshot(g) : [],
     remaining: g && g.winner !== null ? unclaimedMines(g) : [],
     yourName: ws ? ws.name : undefined,
@@ -131,7 +133,7 @@ function addSpectator(ws, room) {
 }
 
 function startGame(room) {
-  room.game = createGame();
+  room.game = createGame(room.config);
   room.rematch = [false, false];
   room.players.forEach((ws, i) => {
     send(ws, {
@@ -141,8 +143,7 @@ function startGame(room) {
       names: room.names,
       turn: room.game.turn,
       scores: room.game.scores,
-      width: WIDTH, height: HEIGHT,
-      mineCount: MINE_COUNT, winTarget: WIN_TARGET,
+      ...dims(room.config),
     });
   });
   // 觀戰者也要看到新一局的空盤面
@@ -179,6 +180,7 @@ wss.on('connection', (ws) => {
       const code = newCode();
       const room = {
         code,
+        config: PRESETS[msg.preset] || STANDARD, // 場地大小，建房時決定
         players: [ws, null],
         names: [String(msg.name || '玩家1').slice(0, 12), ''],
         game: null,
@@ -245,8 +247,7 @@ wss.on('connection', (ws) => {
           turn: room.game.turn,
           scores: room.game.scores,
           winner: room.game.winner,
-          width: WIDTH, height: HEIGHT,
-          mineCount: MINE_COUNT, winTarget: WIN_TARGET,
+          ...dims(room.config),
           reveals: snapshot(room.game),
           remaining: room.game.winner !== null ? unclaimedMines(room.game) : [],
           opponentWantsRematch: room.rematch[1 - seat],

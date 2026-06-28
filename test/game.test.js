@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, click, unclaimedMines, WIDTH, HEIGHT, MINE_COUNT, WIN_TARGET } from '../lib/game.js';
+import { createGame, click, unclaimedMines, WIDTH, HEIGHT, MINE_COUNT, WIN_TARGET, STANDARD, PRESETS } from '../lib/game.js';
 
 // 固定 seed 的簡易 LCG，讓測試可重現
 function seededRng(seed) {
@@ -22,7 +22,7 @@ function findCell(game, pred) {
 }
 
 test('棋盤有正確的雷數與相鄰數字', () => {
-  const game = createGame(seededRng(42));
+  const game = createGame(STANDARD, seededRng(42));
   const mines = game.cells.filter((c) => c.mine).length;
   assert.equal(mines, MINE_COUNT);
 
@@ -39,7 +39,7 @@ test('棋盤有正確的雷數與相鄰數字', () => {
 });
 
 test('點到雷：得分、續手', () => {
-  const game = createGame(seededRng(1));
+  const game = createGame(STANDARD, seededRng(1));
   const { x, y } = findCell(game, (c) => c.mine);
   const r = click(game, 0, x, y);
   assert.equal(r.scores[0], 1);
@@ -49,7 +49,7 @@ test('點到雷：得分、續手', () => {
 });
 
 test('點到非雷：翻開、換手、不得分', () => {
-  const game = createGame(seededRng(1));
+  const game = createGame(STANDARD, seededRng(1));
   const { x, y } = findCell(game, (c) => !c.mine);
   const r = click(game, 0, x, y);
   assert.equal(r.scores[0], 0);
@@ -59,7 +59,7 @@ test('點到非雷：翻開、換手、不得分', () => {
 });
 
 test('點到 0 會 flood fill 出一片', () => {
-  const game = createGame(seededRng(7));
+  const game = createGame(STANDARD, seededRng(7));
   const found = findCell(game, (c) => !c.mine && c.adj === 0);
   assert.ok(found, '此 seed 應有 0 格');
   const r = click(game, 0, found.x, found.y);
@@ -67,7 +67,7 @@ test('點到 0 會 flood fill 出一片', () => {
 });
 
 test('非法點擊回傳 null：不是你的回合、重複點、越界', () => {
-  const game = createGame(seededRng(1));
+  const game = createGame(STANDARD, seededRng(1));
   assert.equal(click(game, 1, 0, 0), null); // turn 是 0
   assert.equal(click(game, 0, -1, 5), null);
   const { x, y } = findCell(game, (c) => c.mine);
@@ -76,7 +76,7 @@ test('非法點擊回傳 null：不是你的回合、重複點、越界', () => 
 });
 
 test('搶到 26 雷獲勝，勝後不能再點', () => {
-  const game = createGame(seededRng(3));
+  const game = createGame(STANDARD, seededRng(3));
   let r = null;
   // 玩家 0 連續點雷（點雷續手，所以可以一路點下去）
   for (let i = 0; i < WIN_TARGET; i++) {
@@ -88,4 +88,23 @@ test('搶到 26 雷獲勝，勝後不能再點', () => {
   const m = findCell(game, (c) => c.mine && !c.revealed);
   assert.equal(click(game, 0, m.x, m.y), null);
   assert.equal(unclaimedMines(game).length, MINE_COUNT - WIN_TARGET);
+});
+
+test('小場設定：12×12、29 雷、先搶 15、game 自帶尺寸', () => {
+  const game = createGame(PRESETS.small, seededRng(9));
+  assert.equal(game.width, 12);
+  assert.equal(game.height, 12);
+  assert.equal(game.cells.length, 144);
+  assert.equal(game.cells.filter((c) => c.mine).length, 29);
+  assert.equal(game.winTarget, 15);
+
+  // 連點 15 雷即獲勝
+  let r = null;
+  for (let i = 0; i < 15; i++) {
+    let m = null;
+    for (let k = 0; k < game.cells.length && !m; k++) if (game.cells[k].mine && !game.cells[k].revealed) m = k;
+    r = click(game, 0, m % 12, Math.floor(m / 12));
+  }
+  assert.equal(r.winner, 0);
+  assert.equal(r.scores[0], 15);
 });

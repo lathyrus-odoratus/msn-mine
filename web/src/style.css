@@ -212,3 +212,23 @@ button.secondary {
   font-size: 14px;
 }
 .watchers { color: #6a4fc0; font-weight: 600; font-size: 13px; }
+.self-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #333;
+}
+.self-name .role-tag { color: #777; }
+.self-name strong { color: #1b4fa0; }
+.name-edit { padding: 3px 6px; font-size: 13px; width: 110px; }
+.link-btn {
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563b8;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; filter: none; }

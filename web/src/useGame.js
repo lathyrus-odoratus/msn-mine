@@ -25,6 +25,8 @@ export const state = reactive({
   reconnecting: false,
   isSpectator: false, // 唯讀觀戰模式
   spectatorCount: 0, // 目前觀戰人數
+  spectatorNames: [], // 觀戰者名單
+  myName: '', // 自己目前的暱稱（觀戰者為菜市場名字；可改名）
 });
 
 let ws = null;
@@ -78,6 +80,7 @@ function emptyBoard() {
 function applyMeta(msg) {
   state.you = msg.you;
   state.names = msg.names;
+  state.myName = msg.names[msg.you];
   state.turn = msg.turn;
   state.scores = [...msg.scores];
   state.width = msg.width;
@@ -141,7 +144,9 @@ function handleMessage(msg) {
       state.height = msg.height;
       state.mineCount = msg.mineCount;
       state.winTarget = msg.winTarget;
-      state.spectatorCount = msg.spectatorCount || 0;
+      state.spectatorNames = msg.spectatorNames || [];
+      state.spectatorCount = state.spectatorNames.length;
+      if (msg.yourName) state.myName = msg.yourName;
       state.board = emptyBoard();
       for (const r of msg.reveals) {
         state.board[r.y][r.x] = r.mine ? { mine: true, owner: r.owner } : { mine: false, adj: r.adj };
@@ -159,7 +164,12 @@ function handleMessage(msg) {
       break;
     }
     case 'spectators':
-      state.spectatorCount = msg.count;
+      state.spectatorNames = msg.names || [];
+      state.spectatorCount = state.spectatorNames.length;
+      break;
+    case 'player_renamed':
+      state.names[msg.seat] = msg.name;
+      if (!state.isSpectator && msg.seat === state.you) state.myName = msg.name;
       break;
     case 'room_closed':
       backToLobby();
@@ -264,6 +274,7 @@ export function resumeIfPossible() {
 
 export async function createRoom(name) {
   state.error = '';
+  state.myName = name; // 等待室就先有暱稱（created 訊息不帶名字）
   await ensureConnected();
   ws.send(JSON.stringify({ type: 'create', name }));
 }
@@ -278,6 +289,16 @@ export async function spectateRoom(code) {
   state.error = '';
   await ensureConnected();
   ws.send(JSON.stringify({ type: 'spectate', code }));
+}
+
+// 玩家或觀戰者隨時改名（樂觀更新後送伺服器廣播）
+export function renameSelf(name) {
+  const n = String(name || '').slice(0, 12).trim();
+  if (!n || !ws || ws.readyState !== WebSocket.OPEN) return;
+  state.myName = n;
+  if (!state.isSpectator && state.you !== null) state.names[state.you] = n;
+  localStorage.setItem('mine-name', n);
+  ws.send(JSON.stringify({ type: 'rename', name: n }));
 }
 
 export function clickCell(x, y) {
@@ -309,6 +330,8 @@ export function backToLobby() {
   state.inviteCode = '';
   state.isSpectator = false;
   state.spectatorCount = 0;
+  state.spectatorNames = [];
+  state.myName = '';
   state.opponentLeft = false;
   state.opponentOffline = false;
   state.reconnecting = false;

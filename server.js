@@ -60,6 +60,12 @@ function destroyRoom(room) {
   rooms.delete(room.code);
 }
 
+// 觀戰者預設暱稱：隨機菜市場名字（姓 + 名），撞名也無妨——可隨時改
+const SURNAMES = ['陳', '林', '黃', '張', '李', '王', '吳', '劉', '蔡', '楊', '許', '鄭', '謝', '郭', '洪'];
+const GIVEN_NAMES = ['淑芬', '美玲', '雅婷', '怡君', '志明', '家豪', '俊傑', '建宏', '淑惠', '美惠', '雅雯', '宗翰', '冠廷', '心怡', '詩涵', '欣怡', '志偉', '秀英', '麗華', '雅琪'];
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const randomMarketName = () => pick(SURNAMES) + pick(GIVEN_NAMES);
+
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆字元
 function newCode() {
   let code;
@@ -83,13 +89,16 @@ function broadcastAll(room, msg) {
   for (const s of room.spectators) send(s, msg);
 }
 
-// 觀戰者進場 / 離場時，把最新人數推給全房（玩家會看到「👁 N 人觀戰」）
-function broadcastSpectatorCount(room) {
-  broadcastAll(room, { type: 'spectators', count: room.spectators.length });
+const spectatorNames = (room) => room.spectators.map((s) => s.name);
+
+// 觀戰者進場 / 離場 / 改名時，把最新名單推給全房（玩家會看到「👁 王小明 觀戰中」）
+function broadcastSpectatorList(room) {
+  broadcastAll(room, { type: 'spectators', names: spectatorNames(room) });
 }
 
-// 觀戰者要看的當前局面：跟重連快照同格式，但沒有座位、沒有 token（唯讀）
-function spectateState(room) {
+// 觀戰者要看的當前局面：跟重連快照同格式，但沒有座位、沒有 token（唯讀）。
+// 帶 ws 時附上「你的觀戰暱稱」yourName
+function spectateState(room, ws) {
   const g = room.game;
   return {
     type: 'spectate_state',
@@ -102,7 +111,8 @@ function spectateState(room) {
     mineCount: MINE_COUNT, winTarget: WIN_TARGET,
     reveals: g ? snapshot(g) : [],
     remaining: g && g.winner !== null ? unclaimedMines(g) : [],
-    spectatorCount: room.spectators.length,
+    yourName: ws ? ws.name : undefined,
+    spectatorNames: spectatorNames(room),
   };
 }
 
@@ -110,9 +120,10 @@ function addSpectator(ws, room) {
   ws.room = room;
   ws.seat = null;
   ws.isSpectator = true;
+  ws.name = randomMarketName(); // 進場先給個菜市場名字，之後可隨時改
   room.spectators.push(ws);
-  send(ws, spectateState(room));
-  broadcastSpectatorCount(room);
+  send(ws, spectateState(room, ws));
+  broadcastSpectatorList(room);
 }
 
 function startGame(room) {
@@ -131,7 +142,7 @@ function startGame(room) {
     });
   });
   // 觀戰者也要看到新一局的空盤面
-  for (const s of room.spectators) send(s, spectateState(room));
+  for (const s of room.spectators) send(s, spectateState(room, s));
 }
 
 // Cloudflare 會切斷閒置 100 秒的連線，每 30 秒 ping 一次保活；
@@ -240,6 +251,22 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.type === 'rename') {
+      // 玩家或觀戰者隨時改名（等待室、對局中皆可）
+      const room = ws.room;
+      if (!room) return;
+      const name = String(msg.name || '').slice(0, 12).trim();
+      if (!name) return;
+      if (ws.isSpectator) {
+        ws.name = name;
+        broadcastSpectatorList(room);
+      } else if (ws.seat === 0 || ws.seat === 1) {
+        room.names[ws.seat] = name;
+        broadcastAll(room, { type: 'player_renamed', seat: ws.seat, name });
+      }
+      return;
+    }
+
     const room = ws.room;
     if (!room || !room.game) return;
     if (ws.isSpectator) return; // 觀戰者唯讀：忽略 click / rematch
@@ -277,8 +304,8 @@ wss.on('connection', (ws) => {
     if (ws.isSpectator) {
       const i = room.spectators.indexOf(ws);
       if (i !== -1) room.spectators.splice(i, 1);
-      broadcastSpectatorCount(room);
-      return; // 觀戰者離場只更新人數，不動房間
+      broadcastSpectatorList(room);
+      return; // 觀戰者離場只更新名單，不動房間
     }
     if (room.players[ws.seat] !== ws) return; // 已被重連的新連線取代
     room.players[ws.seat] = null;

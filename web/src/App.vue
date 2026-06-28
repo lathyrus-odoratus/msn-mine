@@ -1,11 +1,22 @@
 <script setup>
 import { onMounted, ref } from 'vue';
-import { state, requestRematch, backToLobby, resumeIfPossible, roomLink } from './useGame.js';
+import { state, requestRematch, backToLobby, resumeIfPossible, roomLink, renameSelf } from './useGame.js';
 import Lobby from './components/Lobby.vue';
 import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
 
 onMounted(resumeIfPossible);
+
+const editingName = ref(false);
+const nameDraft = ref('');
+function startEditName() {
+  nameDraft.value = state.myName;
+  editingName.value = true;
+}
+function commitName() {
+  renameSelf(nameDraft.value);
+  editingName.value = false;
+}
 
 const copied = ref(false);
 async function copyLink() {
@@ -29,8 +40,30 @@ async function copyLink() {
     <div class="content">
       <div v-if="state.reconnecting" class="banner">🔌 連線中斷，重新連線中…</div>
       <div v-else-if="state.opponentOffline" class="banner">⏳ 對手斷線了，等待重連…</div>
-      <div v-if="state.isSpectator && state.phase !== 'lobby'" class="spectator-bar">
-        👁 觀戰中（唯讀）<span v-if="state.spectatorCount">・共 {{ state.spectatorCount }} 人觀戰</span>
+
+      <!-- 自己的暱稱（玩家＋觀戰者皆可隨時改名） -->
+      <div v-if="state.phase !== 'lobby' && state.myName" class="self-name">
+        <span class="role-tag">{{ state.isSpectator ? '👁 觀戰中' : '你' }}</span>
+        <template v-if="!editingName">
+          <strong>{{ state.myName }}</strong>
+          <button class="link-btn" @click="startEditName">✏️ 改名</button>
+        </template>
+        <template v-else>
+          <input
+            v-model="nameDraft"
+            maxlength="12"
+            class="name-edit"
+            @keyup.enter="commitName"
+            @keyup.esc="editingName = false"
+          />
+          <button class="link-btn" @click="commitName">確定</button>
+          <button class="link-btn" @click="editingName = false">取消</button>
+        </template>
+      </div>
+
+      <!-- 觀戰名單（全房可見） -->
+      <div v-if="state.phase !== 'lobby' && state.spectatorCount" class="watchers">
+        👁 {{ state.spectatorCount }} 人觀戰：{{ state.spectatorNames.join('、') }}
       </div>
 
       <Lobby v-if="state.phase === 'lobby'" />
@@ -45,9 +78,6 @@ async function copyLink() {
       </div>
 
       <template v-else>
-        <div v-if="!state.isSpectator && state.spectatorCount" class="watchers">
-          👁 {{ state.spectatorCount }} 人觀戰中
-        </div>
         <ScorePanel />
         <Board />
 

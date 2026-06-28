@@ -4,6 +4,7 @@ import { state, requestRematch, backToLobby, resumeIfPossible, roomLink, renameS
 import Lobby from './components/Lobby.vue';
 import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
+import Taunts from './components/Taunts.vue';
 
 onMounted(resumeIfPossible);
 
@@ -80,6 +81,7 @@ async function copyLink() {
       <template v-else>
         <ScorePanel />
         <Board />
+        <Taunts />
 
         <div v-if="state.phase === 'over'" class="overlay-bar">
           <template v-if="state.winner !== null">

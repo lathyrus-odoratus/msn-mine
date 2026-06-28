@@ -232,3 +232,33 @@ button.secondary {
   cursor: pointer;
 }
 .link-btn:hover { text-decoration: underline; filter: none; }
+
+/* ── 嗆聲 ── */
+.taunts { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.taunt-feed { display: flex; flex-direction: column; gap: 4px; align-items: center; min-height: 0; }
+.taunt-bubble {
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 12px;
+  padding: 5px 12px;
+  font-size: 14px;
+  color: #222;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.taunt-bubble .taunt-name { font-weight: 700; color: #1b4fa0; }
+.taunt-bubble.spectator { background: #f3eeff; border-color: #b9a6e8; }
+.taunt-bubble.spectator .taunt-name { color: #6a4fc0; }
+.taunt-buttons { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.taunt-btn {
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  background: linear-gradient(180deg, #fdfdfd 0%, #e6e6e6 100%);
+  border: 1px solid #aaa;
+  border-radius: 14px;
+}
+/* 泡泡進出動畫 */
+.taunt-enter-active, .taunt-leave-active { transition: all 0.3s ease; }
+.taunt-enter-from { opacity: 0; transform: translateY(6px); }
+.taunt-leave-to { opacity: 0; transform: translateY(-6px); }

@@ -1,5 +1,9 @@
 import { reactive } from 'vue';
 
+// 預設嗆聲（索引須與 server.js 的 TAUNT_COUNT 一致）
+export const TAUNTS = ['這也叫埋雷？😏', '看我的！💪', '你完蛋了 😂', '雷都是我的 🔥', '手下留情 🙏'];
+let tauntId = 0;
+
 // 與伺服器溝通的單一狀態來源
 export const state = reactive({
   phase: 'lobby', // lobby | waiting | playing | over
@@ -27,6 +31,7 @@ export const state = reactive({
   spectatorCount: 0, // 目前觀戰人數
   spectatorNames: [], // 觀戰者名單
   myName: '', // 自己目前的暱稱（觀戰者為菜市場名字；可改名）
+  taunts: [], // 最近的嗆聲泡泡（會自動消失）
 });
 
 let ws = null;
@@ -171,6 +176,17 @@ function handleMessage(msg) {
       state.names[msg.seat] = msg.name;
       if (!state.isSpectator && msg.seat === state.you) state.myName = msg.name;
       break;
+    case 'taunt': {
+      const text = TAUNTS[msg.i];
+      if (!text) break;
+      const id = ++tauntId;
+      state.taunts.push({ id, name: msg.name, text, spectator: !!msg.spectator });
+      setTimeout(() => {
+        const idx = state.taunts.findIndex((t) => t.id === id);
+        if (idx !== -1) state.taunts.splice(idx, 1);
+      }, 4500);
+      break;
+    }
     case 'room_closed':
       backToLobby();
       state.notice = '房間已結束';
@@ -291,6 +307,13 @@ export async function spectateRoom(code) {
   ws.send(JSON.stringify({ type: 'spectate', code }));
 }
 
+// 嗆聲：送出預設嗆聲的索引（玩家與觀戰者皆可）
+export function sendTaunt(i) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (i < 0 || i >= TAUNTS.length) return;
+  ws.send(JSON.stringify({ type: 'taunt', i }));
+}
+
 // 玩家或觀戰者隨時改名（樂觀更新後送伺服器廣播）
 export function renameSelf(name) {
   const n = String(name || '').slice(0, 12).trim();
@@ -332,6 +355,7 @@ export function backToLobby() {
   state.spectatorCount = 0;
   state.spectatorNames = [];
   state.myName = '';
+  state.taunts = [];
   state.opponentLeft = false;
   state.opponentOffline = false;
   state.reconnecting = false;

@@ -66,6 +66,10 @@ const GIVEN_NAMES = ['淑芬', '美玲', '雅婷', '怡君', '志明', '家豪',
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randomMarketName = () => pick(SURNAMES) + pick(GIVEN_NAMES);
 
+// 嗆聲：前端送索引、伺服器只驗證範圍（文字內容在前端 useGame.js 的 TAUNTS，須同步）
+const TAUNT_COUNT = 5;
+const TAUNT_COOLDOWN_MS = 700; // 防洗版
+
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆字元
 function newCode() {
   let code;
@@ -163,6 +167,7 @@ wss.on('connection', (ws) => {
   ws.room = null;
   ws.seat = null;
   ws.isSpectator = false;
+  ws.lastTaunt = 0;
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
@@ -264,6 +269,20 @@ wss.on('connection', (ws) => {
         room.names[ws.seat] = name;
         broadcastAll(room, { type: 'player_renamed', seat: ws.seat, name });
       }
+      return;
+    }
+
+    if (msg.type === 'taunt') {
+      // 玩家或觀戰者嗆聲：伺服器只驗證索引範圍，附上發言者名字後廣播
+      const room = ws.room;
+      if (!room) return;
+      const i = msg.i | 0;
+      if (i < 0 || i >= TAUNT_COUNT) return;
+      const now = Date.now();
+      if (now - (ws.lastTaunt || 0) < TAUNT_COOLDOWN_MS) return; // 冷卻中
+      ws.lastTaunt = now;
+      const name = ws.isSpectator ? ws.name : room.names[ws.seat];
+      broadcastAll(room, { type: 'taunt', i, name, spectator: !!ws.isSpectator });
       return;
     }
 

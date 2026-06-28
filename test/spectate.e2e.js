@@ -75,6 +75,23 @@ const pr = await recv(b);
 assert(pr.type === 'player_renamed' && pr.seat === 0 && pr.name === '艾莉絲', '玩家改名廣播 player_renamed');
 await recv(a); await recv(c); // 消化同則廣播
 
+// 嗆聲：玩家發 → 全房收到，帶發言者名字、spectator=false
+send(a, { type: 'taunt', i: 0 });
+const tA = await recv(a);
+assert(tA.type === 'taunt' && tA.i === 0 && tA.name === '艾莉絲' && tA.spectator === false, '玩家嗆聲廣播（spectator=false）');
+await recv(b); await recv(c); // 消化同則廣播
+
+// 嗆聲：觀戰者發 → 全房收到，spectator=true
+send(c, { type: 'taunt', i: 1 });
+const tC = await recv(a);
+assert(tC.type === 'taunt' && tC.i === 1 && tC.name === '隔壁老王' && tC.spectator === true, '觀戰者嗆聲廣播（spectator=true）');
+await recv(b); await recv(c); // 消化同則廣播
+
+// 冷卻：觀戰者立刻再嗆 → 700ms 內被忽略，全房不該再收到
+send(c, { type: 'taunt', i: 2 });
+await new Promise((r) => setTimeout(r, 300));
+assert(a.inbox.length === 0 && b.inbox.length === 0 && c.inbox.length === 0, '冷卻期內的連發嗆聲被忽略');
+
 // Alice（座位 0，先手）點一格 → 三方都收到一致的 update
 send(a, { type: 'click', x: 0, y: 0 });
 const uA = await recv(a);

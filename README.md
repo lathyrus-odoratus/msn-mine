@@ -67,6 +67,11 @@ sessionStorage，刷新頁面或網路恢復後自動帶完整棋盤快照回到
 的 ingress 規則 `mineduel.miao-bao.cc → http://localhost:8090`）→ Cloudflare DNS。
 VM 不開對外 port。伺服器每 30 秒 ws ping 保活（Cloudflare 會切斷閒置 100 秒的連線）。
 
+`docker compose` 另起一個 Postgres 容器（`db`，只在 compose 內部網路、不對外公開 port）
+存對局紀錄，資料放具名 volume `mine-pgdata`。連線字串由 compose 注入 `DATABASE_URL`；
+密碼可用環境變數 `PG_PASSWORD` 覆寫（預設 `mine_local_pw`）。沒有 DB 時 app 自動降級、
+不持久化也照常運作。
+
 更新部署：
 
 ```bash
@@ -96,7 +101,7 @@ ssh wisp 'cd ~/msn-mine && docker compose up -d --build'
 - [x] 路由（/room/ABCD 邀請連結；觀戰、回放分享的前置）
 - [x] 自訂旗子（滿版方塊取代 ⚑ 以免跟數字 1 混淆；自選顏色 + 程式化 identicon 花紋可重抽；
       localStorage 保存、跟著名字一起廣播給對手與觀戰者）
-- [ ] 對局紀錄儲存・輕量版（每局事件流寫進 Postgres，replay UI 做之前先攢數據；個人戰績綁 localStorage 匿名 ID，日後登入可認領）
+- [x] 對局紀錄儲存（每局事件流寫進 Postgres；replay UI 為下一步。無 DB 時自動降級不持久化）
 
 ### 第二層：內容與深度（閘門：朋友圈每週還有人自發開局）
 

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { createGame, click, snapshot, unclaimedMines, PRESETS, STANDARD } from './lib/game.js';
 import { buildGameRecord } from './lib/record.js';
+import { initStore, saveGame, listGames, getGame } from './lib/store.js';
 
 const PORT = process.env.PORT || 3000;
 const GRACE_MS = Number(process.env.GRACE_MS || 60000); // 斷線後保留房間的寬限時間
@@ -36,6 +37,23 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     return res.end('ok');
   }
+
+  // 對局紀錄讀取 API（給 replay 列表與播放用）
+  const sendJSON = (code, data) => {
+    res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+    res.end(JSON.stringify(data));
+  };
+  if (req.url === '/api/games' || req.url.startsWith('/api/games?')) {
+    const limit = Number(new URL(req.url, 'http://x').searchParams.get('limit')) || 30;
+    listGames(limit).then((rows) => sendJSON(200, rows)).catch(() => sendJSON(500, []));
+    return;
+  }
+  const mGame = req.url.match(/^\/api\/games\/(\d+)$/);
+  if (mGame) {
+    getGame(Number(mGame[1])).then((rec) => sendJSON(rec ? 200 : 404, rec)).catch(() => sendJSON(500, null));
+    return;
+  }
+
   const pathname = path.normalize(req.url.split('?')[0]).replace(/^(\.\.[/\\])+/, '');
   if (pathname === '/' || pathname === '.') return sendIndex(res);
 
@@ -159,15 +177,13 @@ function addSpectator(ws, room) {
   broadcastSpectatorList(room);
 }
 
-// 對局紀錄接縫：每局結束時呼叫。先記憶體暫存（重啟即失），持久化到 Postgres 是下一步。
-const recentGames = [];
+// 對局紀錄接縫：每局結束時呼叫。寫入 Postgres（無 pg 時自動降級不持久化）。
 function recordGame(record) {
-  recentGames.push(record);
-  if (recentGames.length > 200) recentGames.shift();
   console.log(
     `[record] ${record.code} ${record.players[0].name} ${record.finalScores[0]}–${record.finalScores[1]} ` +
     `${record.players[1].name}・${record.moves.length} 手・贏家座位 ${record.winner}`
   );
+  saveGame(record); // fire-and-forget
 }
 
 function startGame(room) {
@@ -389,3 +405,5 @@ wss.on('connection', (ws) => {
 server.listen(PORT, () => {
   console.log(`msn-mine server listening on http://localhost:${PORT}`);
 });
+
+initStore(); // 連 Postgres（無則記憶體模式），不阻擋伺服器啟動

@@ -5,3 +5,22 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8090:3000" # 只綁 localhost，對外一律走 cloudflared tunnel
+    environment:
+      DATABASE_URL: postgres://mine:${PG_PASSWORD:-mine_local_pw}@db:5432/mine
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    container_name: msn-mine-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mine
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-mine_local_pw}
+      POSTGRES_DB: mine
+    volumes:
+      - mine-pgdata:/var/lib/postgresql/data
+    # 不對外公開 port，只在 compose 內部網路供 mine 連線
+
+volumes:
+  mine-pgdata:

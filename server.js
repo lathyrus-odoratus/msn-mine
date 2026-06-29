@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { createGame, click, snapshot, unclaimedMines, PRESETS, STANDARD } from './lib/game.js';
+import { buildGameRecord } from './lib/record.js';
 
 const PORT = process.env.PORT || 3000;
 const GRACE_MS = Number(process.env.GRACE_MS || 60000); // 斷線後保留房間的寬限時間
@@ -158,8 +159,21 @@ function addSpectator(ws, room) {
   broadcastSpectatorList(room);
 }
 
+// 對局紀錄接縫：每局結束時呼叫。先記憶體暫存（重啟即失），持久化到 Postgres 是下一步。
+const recentGames = [];
+function recordGame(record) {
+  recentGames.push(record);
+  if (recentGames.length > 200) recentGames.shift();
+  console.log(
+    `[record] ${record.code} ${record.players[0].name} ${record.finalScores[0]}–${record.finalScores[1]} ` +
+    `${record.players[1].name}・${record.moves.length} 手・贏家座位 ${record.winner}`
+  );
+}
+
 function startGame(room) {
   room.game = createGame(room.config);
+  room.game.log = []; // 事件流：依序記錄每一手
+  room.game.startedAt = Date.now();
   room.rematch = [false, false];
   room.players.forEach((ws, i) => {
     send(ws, {
@@ -322,16 +336,20 @@ wss.on('connection', (ws) => {
     if (ws.isSpectator) return; // 觀戰者唯讀：忽略 click / rematch
 
     if (msg.type === 'click') {
-      const result = click(room.game, ws.seat, msg.x | 0, msg.y | 0);
+      const x = msg.x | 0, y = msg.y | 0;
+      const result = click(room.game, ws.seat, x, y);
       if (!result) return;
+      // 事件流：記下這一手（reveals 已含搶到雷的 owner，足以重播）
+      room.game.log.push({ by: ws.seat, x, y, reveals: result.reveals, scores: result.scores, turn: result.turn, winner: result.winner });
       broadcastAll(room, { type: 'update', by: ws.seat, ...result });
       if (result.winner !== null) {
-        broadcastAll(room, {
-          type: 'gameover',
-          winner: result.winner,
-          scores: result.scores,
-          remaining: unclaimedMines(room.game),
-        });
+        const remaining = unclaimedMines(room.game);
+        broadcastAll(room, { type: 'gameover', winner: result.winner, scores: result.scores, remaining });
+        recordGame(buildGameRecord({
+          code: room.code, config: room.config, names: room.names, styles: room.styles,
+          moves: room.game.log, winner: result.winner, scores: result.scores,
+          remaining, startedAt: room.game.startedAt, endedAt: Date.now(),
+        }));
       }
       return;
     }

@@ -12,6 +12,7 @@ body {
 
 /* 仿舊版視窗外框 */
 .window {
+  position: relative; /* 供嗆聲泡泡定位 */
   background: #ece9d8;
   border: 1px solid #0a246a;
   border-radius: 8px 8px 4px 4px;
@@ -362,7 +363,21 @@ button.secondary {
 
 /* ── 嗆聲 ── */
 .taunts { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
-.taunt-feed { display: flex; flex-direction: column; gap: 4px; align-items: center; min-height: 0; }
+/* 泡泡浮在主畫面上方、脫離文件流、不擋點擊——按鈕才不會被推得點歪 */
+.taunt-feed {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  width: max-content;
+  max-width: 88%;
+  pointer-events: none;
+  z-index: 50;
+}
 .taunt-bubble {
   background: #fff;
   border: 1px solid #bbb;

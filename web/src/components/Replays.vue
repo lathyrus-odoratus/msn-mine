@@ -73,7 +73,7 @@ function winnerLabel(g) {
             <b>{{ g.final_scores[0] }}</b> : <b>{{ g.final_scores[1] }}</b>
             {{ g.player1_name }}
           </span>
-          <span class="rr-meta">{{ presetLabel(g.preset) }}・{{ g.move_count }} 手・{{ winnerLabel(g) }}</span>
+          <span class="rr-meta">{{ g.vs_bot ? '🤖 ' : '' }}{{ presetLabel(g.preset) }}・{{ g.move_count }} 手・{{ winnerLabel(g) }}</span>
         </button>
       </div>
     </template>

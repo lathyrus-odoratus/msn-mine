@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { state, createRoom, joinRoom, spectateRoom } from '../useGame.js';
+import { state, createRoom, createBotRoom, joinRoom, spectateRoom } from '../useGame.js';
 import { identiconUri, randomSeed } from '../identicon.js';
 
 // 場地大小選項（建房時決定；label 須與 server.js 的 PRESETS 對應）
@@ -38,6 +38,11 @@ function remember() {
 function onCreate() {
   remember();
   createRoom(name.value || '玩家', preset.value, myStyle());
+}
+
+function onVsBot() {
+  remember();
+  createBotRoom(name.value || '玩家', preset.value, myStyle());
 }
 
 function onJoin() {
@@ -91,6 +96,7 @@ function onSpectate() {
         </label>
       </div>
       <button @click="onCreate">建立房間</button>
+      <button class="secondary" @click="onVsBot">🤖 對電腦</button>
       <div class="join-row">
         <input v-model="code" maxlength="4" placeholder="房號" class="code-input" @keyup.enter="onJoin" />
         <button class="secondary" @click="onJoin">加入</button>

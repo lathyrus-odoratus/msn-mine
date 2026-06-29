@@ -8,6 +8,7 @@ import { WebSocketServer } from 'ws';
 import { createGame, click, snapshot, unclaimedMines, PRESETS, STANDARD } from './lib/game.js';
 import { buildGameRecord } from './lib/record.js';
 import { initStore, saveGame, listGames, getGame } from './lib/store.js';
+import { BOTS, pickMove } from './lib/bot.js';
 
 const PORT = process.env.PORT || 3000;
 const GRACE_MS = Number(process.env.GRACE_MS || 60000); // 斷線後保留房間的寬限時間
@@ -195,6 +196,7 @@ function startGame(room) {
     send(ws, {
       type: 'start',
       you: i,
+      code: room.code,
       token: room.tokens[i],
       names: room.names,
       turn: room.game.turn,
@@ -205,6 +207,36 @@ function startGame(room) {
   });
   // 觀戰者也要看到新一局的空盤面
   for (const s of room.spectators) send(s, spectateState(room, s));
+  // 人機局且輪到電腦（理論上開局是座位 0，先留著保險）
+  if (room.bot) scheduleBot(room);
+}
+
+// 終局：廣播 gameover + 寫紀錄（人機局帶 bot 版本）。人類與電腦獲勝都走這裡。
+function gameOver(room, result) {
+  const remaining = unclaimedMines(room.game);
+  broadcastAll(room, { type: 'gameover', winner: result.winner, scores: result.scores, remaining });
+  recordGame(buildGameRecord({
+    code: room.code, config: room.config, names: room.names, styles: room.styles,
+    moves: room.game.log, winner: result.winner, scores: result.scores,
+    remaining, startedAt: room.game.startedAt, endedAt: Date.now(), bot: room.bot || null,
+  }));
+}
+
+// 電腦下一手：延遲後選點、套用、廣播；搶到雷續手就再排一手。每步都重新確認房間還在。
+const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 450); // 測試可設 0 跑快
+function scheduleBot(room) {
+  if (!room.bot || !room.game || room.game.winner !== null || room.game.turn !== 1) return;
+  setTimeout(() => {
+    if (!rooms.has(room.code) || !room.game || room.game.winner !== null || room.game.turn !== 1) return;
+    const mv = pickMove(room.game, room.bot.id);
+    if (!mv) return;
+    const result = click(room.game, 1, mv.x, mv.y);
+    if (!result) return;
+    room.game.log.push({ by: 1, x: mv.x, y: mv.y, reveals: result.reveals, scores: result.scores, turn: result.turn, winner: result.winner });
+    broadcastAll(room, { type: 'update', by: 1, ...result });
+    if (result.winner !== null) return gameOver(room, result);
+    scheduleBot(room); // 還是電腦的回合（搶到雷續手）就繼續
+  }, BOT_DELAY_MS);
 }
 
 // Cloudflare 會切斷閒置 100 秒的連線，每 30 秒 ping 一次保活；
@@ -242,6 +274,7 @@ wss.on('connection', (ws) => {
         players: [ws, null],
         names: [String(msg.name || '玩家1').slice(0, 12), ''],
         game: null,
+        bot: null, // 人機局時為該局 AI 的描述（座位 1）
         rematch: [false, false],
         tokens: [newToken(), newToken()],
         timers: [null, null],
@@ -252,14 +285,22 @@ wss.on('connection', (ws) => {
       tokens.set(room.tokens[1], { room, seat: 1 });
       ws.room = room;
       ws.seat = 0;
-      send(ws, { type: 'created', code, token: room.tokens[0] });
+      if (msg.vsBot) {
+        // 人機局：座位 1 由電腦佔，立即開打、不等人加入
+        room.bot = BOTS[msg.botId] || BOTS.greedy;
+        room.names[1] = '🤖 電腦';
+        room.styles[1] = { color: '#6b7280', seed: 999 };
+        startGame(room);
+      } else {
+        send(ws, { type: 'created', code, token: room.tokens[0] });
+      }
       return;
     }
 
     if (msg.type === 'join') {
       const room = rooms.get(String(msg.code || '').toUpperCase().trim());
       if (!room) return send(ws, { type: 'error', message: '找不到這個房間' });
-      if (room.players[1]) return addSpectator(ws, room); // 滿房 → 同一條連結自動轉觀戰
+      if (room.players[1] || room.bot) return addSpectator(ws, room); // 滿房或人機房 → 自動轉觀戰
       room.players[1] = ws;
       room.names[1] = String(msg.name || '玩家2').slice(0, 12);
       room.styles[1] = sanitizeStyle(msg.style, DEFAULT_STYLES[1]);
@@ -358,22 +399,17 @@ wss.on('connection', (ws) => {
       // 事件流：記下這一手（reveals 已含搶到雷的 owner，足以重播）
       room.game.log.push({ by: ws.seat, x, y, reveals: result.reveals, scores: result.scores, turn: result.turn, winner: result.winner });
       broadcastAll(room, { type: 'update', by: ws.seat, ...result });
-      if (result.winner !== null) {
-        const remaining = unclaimedMines(room.game);
-        broadcastAll(room, { type: 'gameover', winner: result.winner, scores: result.scores, remaining });
-        recordGame(buildGameRecord({
-          code: room.code, config: room.config, names: room.names, styles: room.styles,
-          moves: room.game.log, winner: result.winner, scores: result.scores,
-          remaining, startedAt: room.game.startedAt, endedAt: Date.now(),
-        }));
-      }
+      if (result.winner !== null) gameOver(room, result);
+      else if (room.bot) scheduleBot(room); // 換電腦的回合就讓它下
       return;
     }
 
     if (msg.type === 'rematch') {
       if (room.game.winner === null) return;
       room.rematch[ws.seat] = true;
-      if (room.rematch[0] && room.rematch[1]) {
+      if (room.bot) {
+        startGame(room); // 人機局：電腦一律同意，直接重開
+      } else if (room.rematch[0] && room.rematch[1]) {
         startGame(room);
       } else {
         send(room.players[1 - ws.seat], { type: 'rematch_request' });

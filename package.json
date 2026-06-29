@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node --test test/*.test.js",
-    "test:e2e": "node test/e2e.js && node test/reconnect.e2e.js && node test/spectate.e2e.js"
+    "test:e2e": "node test/e2e.js && node test/reconnect.e2e.js && node test/spectate.e2e.js && node test/vsbot.e2e.js"
   },
   "dependencies": {
     "pg": "^8.22.0",

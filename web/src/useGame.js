@@ -108,6 +108,7 @@ function handleMessage(msg) {
       break;
     case 'start':
       applyMeta(msg);
+      if (msg.code) { state.code = msg.code; setUrl(roomPath(msg.code)); } // 人機局也可分享/觀戰
       state.board = emptyBoard();
       state.winner = null;
       state.lastMove = null;
@@ -296,6 +297,14 @@ export async function createRoom(name, preset, style) {
   state.myName = name; // 等待室就先有暱稱（created 訊息不帶名字）
   await ensureConnected();
   ws.send(JSON.stringify({ type: 'create', name, preset, style }));
+}
+
+// 對電腦：人機局，伺服器立即開打（直接回 start，不經等待室）
+export async function createBotRoom(name, preset, style, botId = 'greedy') {
+  state.error = '';
+  state.myName = name;
+  await ensureConnected();
+  ws.send(JSON.stringify({ type: 'create', name, preset, style, vsBot: true, botId }));
 }
 
 export async function joinRoom(code, name, style) {

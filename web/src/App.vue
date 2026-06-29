@@ -6,10 +6,12 @@ import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
 import Taunts from './components/Taunts.vue';
 import Help from './components/Help.vue';
+import Replays from './components/Replays.vue';
 
 onMounted(resumeIfPossible);
 
 const showHelp = ref(false);
+const showReplays = ref(false);
 
 const editingName = ref(false);
 const nameDraft = ref('');
@@ -71,7 +73,13 @@ async function copyLink() {
         👁 {{ state.spectatorCount }} 人觀戰：{{ state.spectatorNames.join('、') }}
       </div>
 
-      <Lobby v-if="state.phase === 'lobby'" />
+      <template v-if="state.phase === 'lobby'">
+        <Replays v-if="showReplays" @close="showReplays = false" />
+        <template v-else>
+          <Lobby />
+          <button class="link-btn replays-entry" @click="showReplays = true">📜 看最近對局回放</button>
+        </template>
+      </template>
 
       <div v-else-if="state.phase === 'waiting'" class="waiting">
         <p>房間已建立，把連結或房號傳給對手：</p>

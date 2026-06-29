@@ -230,6 +230,26 @@ button.secondary {
 }
 .turn-hint { font-size: 14px; font-weight: 600; color: #1b4fa0; }
 
+/* ── 回放 ── */
+.replays { display: flex; flex-direction: column; gap: 12px; min-width: 320px; align-items: stretch; }
+.replays-head { display: flex; align-items: center; justify-content: space-between; }
+.replays-entry { align-self: center; margin-top: 4px; }
+.replay-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
+.replay-row {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  color: #222; background: #fff; border: 1px solid #ccc; border-radius: 6px;
+  padding: 8px 12px; cursor: pointer; font-weight: 400;
+}
+.replay-row:hover { background: #eef5ff; border-color: #2a6fd6; filter: none; }
+.rr-players { font-size: 15px; }
+.rr-players b { color: #1b4fa0; }
+.rr-meta { font-size: 12px; color: #888; }
+.replay-scores { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; }
+.rr-score { font-weight: 800; font-variant-numeric: tabular-nums; color: #1b4fa0; }
+.replay-slider { width: 100%; }
+.replay-controls { display: flex; align-items: center; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.replay-progress { font-size: 13px; color: #555; font-variant-numeric: tabular-nums; }
+
 /* ── 棋盤 ── */
 .board {
   display: grid;

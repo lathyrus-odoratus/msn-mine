@@ -76,3 +76,9 @@ export const playEnd = () => sequence([[659, 0.1], [523]], { type: 'sine', dur: 
 
 // 收到嗆聲：俏皮小泡泡
 export const playTaunt = () => tone(880, { from: 1320, type: 'square', dur: 0.08, gain: 0.07 });
+
+// 探雷模式：逐格腳步（短促低沉）
+export const playStep = () => tone(150, { from: 190, type: 'sine', dur: 0.05, gain: 0.05 });
+
+// 探雷模式：插旗（短促清脆）
+export const playMark = () => tone(620, { from: 460, type: 'square', dur: 0.05, gain: 0.05 });

@@ -9,6 +9,7 @@ import Taunts from './components/Taunts.vue';
 import Help from './components/Help.vue';
 import Replays from './components/Replays.vue';
 import RoomList from './components/RoomList.vue';
+import MineRunner from './components/MineRunner.vue';
 import { sound, toggleMuted } from './sound.js';
 
 onMounted(resumeIfPossible);
@@ -87,7 +88,8 @@ async function copyLink() {
       </div>
 
       <template v-if="state.phase === 'lobby'">
-        <RoomList v-if="route.name === 'rooms'" @back="navigate('/')" />
+        <MineRunner v-if="route.name === 'runner'" />
+        <RoomList v-else-if="route.name === 'rooms'" @back="navigate('/')" />
         <Replays
           v-else-if="route.name === 'replays' || route.name === 'replay'"
           :openId="route.name === 'replay' ? route.param : null"
@@ -100,6 +102,7 @@ async function copyLink() {
           <div class="lobby-links">
             <button class="link-btn" @click="navigate('/rooms')">🟢 進行中（{{ roomCount }}）</button>
             <button class="link-btn" @click="navigate('/replays')">📜 看最近對局回放</button>
+            <button class="link-btn" @click="navigate('/runner')">🧪 探雷模式（原型）</button>
           </div>
         </template>
       </template>

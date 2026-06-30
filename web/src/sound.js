@@ -77,8 +77,33 @@ export const playEnd = () => sequence([[659, 0.1], [523]], { type: 'sine', dur: 
 // 收到嗆聲：俏皮小泡泡
 export const playTaunt = () => tone(880, { from: 1320, type: 'square', dur: 0.08, gain: 0.07 });
 
-// 探雷模式：逐格腳步（短促低沉）
-export const playStep = () => tone(150, { from: 190, type: 'sine', dur: 0.05, gain: 0.05 });
+// 探雷模式：逐格腳步（短促，中頻才聽得到）
+export const playStep = () => tone(300, { from: 380, type: 'triangle', dur: 0.05, gain: 0.08 });
 
 // 探雷模式：插旗（短促清脆）
 export const playMark = () => tone(620, { from: 460, type: 'square', dur: 0.05, gain: 0.05 });
+
+// 探雷模式：能量不足／動作被擋（低沉悶 buzz）
+export const playDeny = () => sequence([[190, 0.06], [120]], { type: 'square', dur: 0.12, gain: 0.08 });
+
+// 探雷模式：翻到 0 取得加速 buff（華麗上行琶音）
+export const playBuff = () => sequence([[523, 0.06], [784, 0.06], [1047, 0.06], [1319]], { type: 'triangle', dur: 0.2, gain: 0.18 });
+
+// buff 持續期間的律動音樂：每拍脈動，stop 時關閉
+let buffTimer = null, buffStep = 0;
+const BUFF_PATTERN = [330, 392, 440, 587, 440, 392];
+export function startBuffLoop() {
+  if (buffTimer) return;
+  buffStep = 0;
+  const beat = () => {
+    const f = BUFF_PATTERN[buffStep % BUFF_PATTERN.length];
+    tone(f, { type: 'sawtooth', dur: 0.16, gain: 0.05 });
+    tone(f * 2, { type: 'sine', dur: 0.1, gain: 0.025 });
+    buffStep++;
+  };
+  beat();
+  buffTimer = setInterval(beat, 200);
+}
+export function stopBuffLoop() {
+  if (buffTimer) { clearInterval(buffTimer); buffTimer = null; }
+}

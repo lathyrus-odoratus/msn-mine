@@ -1,10 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { replayBoard } from '../replay.js';
 import { identiconUri } from '../identicon.js';
 import BoardView from './BoardView.vue';
 
-defineEmits(['close']);
+// openId 由路由帶入（/replays/:id）：有值就載入該局，null 則顯示清單
+const props = defineProps({ openId: { type: [String, Number], default: null } });
+defineEmits(['close', 'open', 'list']);
 
 const list = ref([]);
 const loading = ref(true);
@@ -16,17 +18,20 @@ let timer = null;
 onMounted(async () => {
   try { list.value = await (await fetch('/api/games')).json(); } catch { list.value = []; }
   loading.value = false;
+  if (props.openId != null) load(props.openId);
 });
 onUnmounted(stop);
 
-async function open(id) {
+// 路由切換（含瀏覽器上一步）時同步載入／回清單
+watch(() => props.openId, (id) => (id != null ? load(id) : (stop(), (record.value = null))));
+
+async function load(id) {
   stop();
   try {
     record.value = await (await fetch('/api/games/' + id)).json();
     step.value = 0;
   } catch { record.value = null; }
 }
-function backToList() { stop(); record.value = null; }
 
 const total = computed(() => (record.value ? record.value.moves.length : 0));
 const view = computed(() => (record.value ? replayBoard(record.value, step.value) : null));
@@ -59,7 +64,7 @@ function winnerLabel(g) {
   <div class="replays">
     <div class="replays-head">
       <strong>📜 最近對局回放</strong>
-      <button class="link-btn" @click="$emit('close')">← 回大廳</button>
+      <button class="link-btn" @click="$emit('close')">← 上一步</button>
     </div>
 
     <!-- 清單 -->
@@ -67,7 +72,7 @@ function winnerLabel(g) {
       <p v-if="loading" class="hint">載入中…</p>
       <p v-else-if="!list.length" class="hint">還沒有對局紀錄，打一局就有了。</p>
       <div v-else class="replay-list">
-        <button v-for="g in list" :key="g.id" class="replay-row" @click="open(g.id)">
+        <button v-for="g in list" :key="g.id" class="replay-row" @click="$emit('open', g.id)">
           <span class="rr-players">
             {{ g.player0_name }}
             <b>{{ g.final_scores[0] }}</b> : <b>{{ g.final_scores[1] }}</b>
@@ -106,7 +111,7 @@ function winnerLabel(g) {
         <span class="replay-progress">{{ step }} / {{ total }} 手</span>
       </div>
 
-      <button class="secondary" @click="backToList">← 回清單</button>
+      <button class="secondary" @click="$emit('list')">← 回清單</button>
     </template>
   </div>
 </template>

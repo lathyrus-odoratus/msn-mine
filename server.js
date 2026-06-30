@@ -49,6 +49,10 @@ const server = http.createServer((req, res) => {
     listGames(limit).then((rows) => sendJSON(200, rows)).catch(() => sendJSON(500, []));
     return;
   }
+  // 進行中房間清單（給首頁「進行中(n)」與房間列表用）
+  if (req.url === '/api/rooms') {
+    return sendJSON(200, listActiveRooms());
+  }
   const mGame = req.url.match(/^\/api\/games\/(\d+)$/);
   if (mGame) {
     getGame(Number(mGame[1])).then((rec) => sendJSON(rec ? 200 : 404, rec)).catch(() => sendJSON(500, null));
@@ -142,6 +146,24 @@ function broadcastAll(room, msg) {
 }
 
 const spectatorNames = (room) => room.spectators.map((s) => s.name);
+
+// 進行中（已開打、尚未分出勝負）的房間摘要，供觀戰選擇
+function listActiveRooms() {
+  const out = [];
+  for (const room of rooms.values()) {
+    if (!room.game || room.game.winner !== null) continue;
+    out.push({
+      code: room.code,
+      names: room.names,
+      scores: room.game.scores,
+      preset: room.config.key,
+      winTarget: room.config.winTarget,
+      vsBot: !!room.bot,
+      spectators: room.spectators.length,
+    });
+  }
+  return out;
+}
 
 // 觀戰者進場 / 離場 / 改名時，把最新名單推給全房（玩家會看到「👁 王小明 觀戰中」）
 function broadcastSpectatorList(room) {

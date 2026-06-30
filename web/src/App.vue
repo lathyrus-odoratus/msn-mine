@@ -1,17 +1,27 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { state, requestRematch, backToLobby, resumeIfPossible, roomLink, renameSelf } from './useGame.js';
+import { route, navigate } from './router.js';
 import Lobby from './components/Lobby.vue';
 import Board from './components/Board.vue';
 import ScorePanel from './components/ScorePanel.vue';
 import Taunts from './components/Taunts.vue';
 import Help from './components/Help.vue';
 import Replays from './components/Replays.vue';
+import RoomList from './components/RoomList.vue';
+import { sound, toggleMuted } from './sound.js';
 
 onMounted(resumeIfPossible);
 
 const showHelp = ref(false);
-const showReplays = ref(false);
+
+// 首頁「進行中(n)」的房間數：載入大廳時抓一次
+const roomCount = ref(0);
+async function refreshRoomCount() {
+  try { roomCount.value = (await (await fetch('/api/rooms')).json()).length; } catch { roomCount.value = 0; }
+}
+onMounted(refreshRoomCount);
+watch(() => route.name, (n) => { if (n === 'home') refreshRoomCount(); });
 
 const editingName = ref(false);
 const nameDraft = ref('');
@@ -41,6 +51,9 @@ async function copyLink() {
     <div class="titlebar">
       <span class="titlebar-icon">💣</span>
       <span class="titlebar-name">對戰踩地雷 — Minesweeper Flags</span>
+      <button class="titlebar-help" @click="toggleMuted" :title="sound.muted ? '開啟音效' : '關閉音效'">
+        {{ sound.muted ? '🔇' : '🔊' }}
+      </button>
       <button class="titlebar-help" @click="showHelp = true">❔ 玩法</button>
     </div>
 
@@ -74,10 +87,20 @@ async function copyLink() {
       </div>
 
       <template v-if="state.phase === 'lobby'">
-        <Replays v-if="showReplays" @close="showReplays = false" />
+        <RoomList v-if="route.name === 'rooms'" @back="navigate('/')" />
+        <Replays
+          v-else-if="route.name === 'replays' || route.name === 'replay'"
+          :openId="route.name === 'replay' ? route.param : null"
+          @close="navigate('/')"
+          @open="(id) => navigate('/replays/' + id)"
+          @list="navigate('/replays')"
+        />
         <template v-else>
           <Lobby />
-          <button class="link-btn replays-entry" @click="showReplays = true">📜 看最近對局回放</button>
+          <div class="lobby-links">
+            <button class="link-btn" @click="navigate('/rooms')">🟢 進行中（{{ roomCount }}）</button>
+            <button class="link-btn" @click="navigate('/replays')">📜 看最近對局回放</button>
+          </div>
         </template>
       </template>
 
@@ -97,12 +120,15 @@ async function copyLink() {
 
         <div v-if="state.phase === 'over'" class="overlay-bar">
           <template v-if="state.winner !== null">
-            <strong v-if="state.winner === state.you" class="win">🎉 你贏了！</strong>
+            <!-- 旁觀者只看結果，不顯示「你贏/你輸」 -->
+            <strong v-if="state.isSpectator" class="win">🏁 {{ state.names[state.winner] }} 獲勝！</strong>
+            <strong v-else-if="state.winner === state.you" class="win">🎉 你贏了！</strong>
             <strong v-else class="lose">😵 你輸了…</strong>
           </template>
           <span v-if="state.notice" class="notice">{{ state.notice }}</span>
 
-          <template v-if="!state.opponentLeft">
+          <!-- 旁觀者沒有「再來一局」 -->
+          <template v-if="!state.isSpectator && !state.opponentLeft">
             <button v-if="!state.rematchSent" @click="requestRematch">
               再來一局{{ state.opponentWantsRematch ? '（對手已就緒）' : '' }}
             </button>

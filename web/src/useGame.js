@@ -1,4 +1,6 @@
 import { reactive } from 'vue';
+import { playClaimSelf, playClaimOpp, playReveal, playStart, playWin, playLose, playEnd, playTaunt } from './sound.js';
+import { parseRoute } from './router.js';
 
 // 預設嗆聲（索引須與 server.js 的 TAUNT_COUNT 一致）
 export const TAUNTS = ['這也叫埋雷？😏', '看我的！💪', '你完蛋了 😂', '雷都是我的 🔥', '手下留情 🙏'];
@@ -56,6 +58,7 @@ function parseInviteCode() {
 }
 function setUrl(path) {
   if (location.pathname !== path) history.pushState(null, '', path);
+  parseRoute(); // 與前端路由狀態同步（回大廳、進房都會改 URL）
 }
 export function roomLink(code) {
   return `${location.origin}${roomPath(code)}`;
@@ -120,6 +123,7 @@ function handleMessage(msg) {
       state.error = '';
       state.notice = '';
       state.phase = 'playing';
+      playStart();
       break;
     case 'rejoined': {
       applyMeta(msg);
@@ -185,6 +189,7 @@ function handleMessage(msg) {
       if (!text) break;
       const id = ++tauntId;
       state.taunts.push({ id, name: msg.name, text, spectator: !!msg.spectator });
+      playTaunt();
       setTimeout(() => {
         const idx = state.taunts.findIndex((t) => t.id === id);
         if (idx !== -1) state.taunts.splice(idx, 1);
@@ -202,6 +207,9 @@ function handleMessage(msg) {
       if (msg.reveals.length) {
         const r = msg.reveals[0];
         state.lastMove = { x: r.x, y: r.y };
+        // reveals[0].mine 為 true＝搶到雷（得分續手）；false＝翻空格（換手）
+        if (r.mine) (msg.by === state.you ? playClaimSelf : playClaimOpp)();
+        else playReveal();
       }
       state.scores = [...msg.scores];
       state.turn = msg.turn;
@@ -213,6 +221,9 @@ function handleMessage(msg) {
         state.board[r.y][r.x] = { mine: true, owner: null };
       }
       state.phase = 'over';
+      // 觀戰者（you 為 null）給中性收尾；玩家依勝負
+      if (state.you === null) playEnd();
+      else (msg.winner === state.you ? playWin : playLose)();
       break;
     case 'rematch_request':
       state.opponentWantsRematch = true;
@@ -300,7 +311,7 @@ export async function createRoom(name, preset, style) {
 }
 
 // 對電腦：人機局，伺服器立即開打（直接回 start，不經等待室）
-export async function createBotRoom(name, preset, style, botId = 'greedy') {
+export async function createBotRoom(name, preset, style, botId = 'smart') {
   state.error = '';
   state.myName = name;
   await ensureConnected();
@@ -315,6 +326,7 @@ export async function joinRoom(code, name, style) {
 
 export async function spectateRoom(code) {
   state.error = '';
+  setUrl(roomPath(code)); // URL 反映房號，斷線時可用 URL 重新觀戰
   await ensureConnected();
   ws.send(JSON.stringify({ type: 'spectate', code }));
 }

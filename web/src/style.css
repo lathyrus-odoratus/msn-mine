@@ -145,6 +145,24 @@ body {
 }
 .size-opt:has(input:checked) { border-color: #2a6fd6; background: #eef5ff; }
 .size-opt small { color: #888; margin-left: 6px; }
+
+.bot-picker { display: flex; flex-direction: column; gap: 6px; }
+.bot-opt-row { display: flex; align-items: center; gap: 8px; }
+.bot-opt { flex: 1; }
+.info-btn {
+  flex: none;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; color: #2a6fd6;
+  border: 1px solid #bbb; border-radius: 50%;
+  font-size: 15px; cursor: pointer;
+}
+.info-btn:hover, .info-btn.active { background: #2a6fd6; color: #fff; border-color: #2a6fd6; filter: none; }
+.bot-info {
+  margin: 2px 0 0; padding: 8px 10px;
+  background: #f4f8ff; border: 1px solid #cfe0ff; border-radius: 5px;
+  font-size: 13px; color: #335; line-height: 1.5;
+}
 .flag-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .flag-title { font-size: 13px; color: #333; font-weight: 600; }
 .flag-preview {
@@ -234,7 +252,7 @@ button.secondary {
 /* ── 回放 ── */
 .replays { display: flex; flex-direction: column; gap: 12px; min-width: 320px; align-items: stretch; }
 .replays-head { display: flex; align-items: center; justify-content: space-between; }
-.replays-entry { align-self: center; margin-top: 4px; }
+.lobby-links { display: flex; justify-content: center; gap: 16px; margin-top: 4px; }
 .replay-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
 .replay-row {
   display: flex; flex-direction: column; gap: 2px; align-items: flex-start;

@@ -253,7 +253,18 @@ function drawBoard() {
       ctx.lineWidth = 2; ctx.strokeStyle = '#0a0d12'; ctx.stroke();
     } else if (c.revealed) {
       ctx.fillStyle = '#c4cdd6'; ctx.fillRect(x, y, cp, cp);
-      if (c.adj) { ctx.fillStyle = NUM_COLORS[c.adj]; ctx.fillText(String(c.adj), x + cp / 2, y + cp / 2 + 1); }
+      if (c.adj) {
+        ctx.fillStyle = NUM_COLORS[c.adj]; ctx.fillText(String(c.adj), x + cp / 2, y + cp / 2 + 1);
+      } else {
+        // 0 格：淡斜條紋 texture，跟未翻開蓋子區分
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x, y, cp, cp); ctx.clip();
+        ctx.strokeStyle = 'rgba(138, 153, 170, .4)'; ctx.lineWidth = 1.5;
+        for (let d = -cp; d < cp; d += 7) {
+          ctx.beginPath(); ctx.moveTo(x + d, y + cp); ctx.lineTo(x + d + cp, y); ctx.stroke();
+        }
+        ctx.restore();
+      }
     } else {
       ctx.fillStyle = '#cdd7e2'; ctx.fillRect(x, y, cp, cp);
     }

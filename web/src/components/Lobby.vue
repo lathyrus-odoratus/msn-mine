@@ -9,9 +9,19 @@ const SIZE_OPTIONS = [
   { key: 'small', label: '小場', desc: '12×12・29 雷・先搶 15' },
 ];
 
+// 電腦對手類型（key 須與 lib/bot.js 的 BOTS 對應）；desc 是給玩家看的邏輯說明
+const BOT_OPTIONS = [
+  { key: 'smart', label: '🧠 推理', desc: '估算每一格是地雷的機率，每手都挑最可能是雷的格；會結合多個數字線索推出哪裡安全、哪裡必有雷。最強。' },
+  { key: 'greedy', label: '💰 貪婪', desc: '只在能 100% 確定某格是地雷時才搶（搶到得分又能續手），否則隨機亂猜。中等。' },
+  { key: 'random', label: '🎲 隨機', desc: '完全隨機亂點還沒翻開的格子，不做任何推理。最弱，適合輕鬆玩。' },
+];
+
 const name = ref(localStorage.getItem('mine-name') || '');
 const code = ref(state.inviteCode || ''); // 被邀請進站時預填房號
 const preset = ref('standard');
+const botId = ref(localStorage.getItem('mine-bot') || 'smart');
+const openInfo = ref(''); // 目前展開說明的 bot key（再點一次收合）
+function toggleInfo(key) { openInfo.value = openInfo.value === key ? '' : key; }
 
 // 旗子：自選顏色 + 隨機花紋 seed（搶到的雷會以此滿版方塊呈現）
 const flagColor = ref(localStorage.getItem('mine-color') || '#1d5fd6');
@@ -42,7 +52,8 @@ function onCreate() {
 
 function onVsBot() {
   remember();
-  createBotRoom(name.value || '玩家', preset.value, myStyle());
+  localStorage.setItem('mine-bot', botId.value); // 記住上次選的對手
+  createBotRoom(name.value || '玩家', preset.value, myStyle(), botId.value);
 }
 
 function onJoin() {
@@ -96,6 +107,27 @@ function onSpectate() {
         </label>
       </div>
       <button @click="onCreate">建立房間</button>
+
+      <!-- 電腦對手：選類型，每個選項旁可點 ⓘ 看它的邏輯說明 -->
+      <div class="bot-picker">
+        <span class="size-title">電腦對手</span>
+        <div v-for="b in BOT_OPTIONS" :key="b.key" class="bot-opt-row">
+          <label class="size-opt bot-opt">
+            <input type="radio" name="botId" :value="b.key" v-model="botId" />
+            <span>{{ b.label }}</span>
+          </label>
+          <button
+            type="button"
+            class="info-btn"
+            :class="{ active: openInfo === b.key }"
+            @click="toggleInfo(b.key)"
+            :title="'說明「' + b.label + '」的邏輯'"
+          >ⓘ</button>
+        </div>
+        <p v-if="openInfo" class="bot-info">
+          {{ BOT_OPTIONS.find((b) => b.key === openInfo).desc }}
+        </p>
+      </div>
       <button class="secondary" @click="onVsBot">🤖 對電腦</button>
       <div class="join-row">
         <input v-model="code" maxlength="4" placeholder="房號" class="code-input" @keyup.enter="onJoin" />

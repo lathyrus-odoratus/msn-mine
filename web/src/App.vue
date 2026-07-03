@@ -10,6 +10,7 @@ import Help from './components/Help.vue';
 import Replays from './components/Replays.vue';
 import RoomList from './components/RoomList.vue';
 import MineRunner from './components/MineRunner.vue';
+import RunnerLobby from './components/RunnerLobby.vue';
 import { sound, toggleMuted } from './sound.js';
 
 onMounted(resumeIfPossible);
@@ -89,6 +90,7 @@ async function copyLink() {
 
       <template v-if="state.phase === 'lobby'">
         <MineRunner v-if="route.name === 'runner'" />
+        <RunnerLobby v-else-if="route.name === 'runnervs'" />
         <RoomList v-else-if="route.name === 'rooms'" @back="navigate('/')" />
         <Replays
           v-else-if="route.name === 'replays' || route.name === 'replay'"
@@ -102,7 +104,16 @@ async function copyLink() {
           <div class="lobby-links">
             <button class="link-btn" @click="navigate('/rooms')">🟢 進行中（{{ roomCount }}）</button>
             <button class="link-btn" @click="navigate('/replays')">📜 看最近對局回放</button>
-            <button class="link-btn" @click="navigate('/runner')">🧪 探雷模式（原型）</button>
+          </div>
+          <div class="lobby-vsbot">
+            <span class="vsbot-label">🧪 探雷・對電腦</span>
+            <button class="link-btn vsbot-btn" @click="navigate('/runner/random')">🤖 隨機</button>
+            <button class="link-btn vsbot-btn" @click="navigate('/runner/greedy')">🤖 貪婪</button>
+            <button class="link-btn vsbot-btn" @click="navigate('/runner/smart')">🤖 推理</button>
+          </div>
+          <div class="lobby-vsbot">
+            <span class="vsbot-label">💣 探雷・連線對戰</span>
+            <button class="link-btn vsbot-btn" @click="navigate('/runner-vs')">👥 建房 / 加入</button>
           </div>
         </template>
       </template>

@@ -9,6 +9,7 @@ import { createGame, click, snapshot, unclaimedMines, PRESETS, STANDARD } from '
 import { buildGameRecord } from './lib/record.js';
 import { initStore, saveGame, listGames, getGame } from './lib/store.js';
 import { BOTS, pickMove } from './lib/bot.js';
+import { createRtRoom, rtAddPlayer, rtStart, rtReveal, rtResolveReset } from './lib/rt-room.js';
 
 const PORT = process.env.PORT || 3000;
 const GRACE_MS = Number(process.env.GRACE_MS || 60000); // 斷線後保留房間的寬限時間
@@ -53,6 +54,10 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/rooms') {
     return sendJSON(200, listActiveRooms());
   }
+  // 探雷即時對戰房間清單
+  if (req.url === '/api/rt-rooms') {
+    return sendJSON(200, listActiveRtRooms());
+  }
   const mGame = req.url.match(/^\/api\/games\/(\d+)$/);
   if (mGame) {
     getGame(Number(mGame[1])).then((rec) => sendJSON(rec ? 200 : 404, rec)).catch(() => sendJSON(500, null));
@@ -89,6 +94,8 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 const rooms = new Map();
 // 重連 token -> { room, seat }
 const tokens = new Map();
+// 探雷即時對戰房：code -> rt-room（另掛 wsById: id->ws）。與經典回合制房完全分開。
+const rtRooms = new Map();
 
 const newToken = () => crypto.randomBytes(16).toString('hex');
 
@@ -134,6 +141,33 @@ function send(ws, msg) {
 
 function broadcast(room, msg) {
   for (const p of room.players) send(p, msg);
+}
+
+// ---- 探雷即時對戰（realtime）----
+function rtBroadcast(room, msg, except) {
+  for (const w of room.wsById) if (w && w !== except) send(w, msg);
+}
+function rtBroadcastLobby(room) {
+  rtBroadcast(room, { type: 'rt_lobby', players: room.players.map((p) => ({ id: p.id, name: p.name })), started: room.started });
+}
+function sanitizeRtCfg(c) {
+  c = c || {};
+  const clamp = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : d);
+  const W = clamp(c.W, 6, 24, 12), H = clamp(c.H, 6, 24, 12);
+  return {
+    W, H,
+    MINES: clamp(c.MINES, 5, Math.floor(W * H * 0.6), 30),
+    GOAL: clamp(c.GOAL, 5, 300, 60),
+    RESET_TRIGGER: clamp(c.RESET_TRIGGER, 1, 40, 8),
+    RESET_FREEZE_SEC: clamp(c.RESET_FREEZE_SEC, 2, 20, 10),   // 換圖定格秒數（server 授時）
+  };
+}
+function listActiveRtRooms() {
+  const out = [];
+  for (const room of rtRooms.values()) {
+    out.push({ code: room.code, players: room.players.map((p) => p.name), started: room.started, cfg: room.cfg });
+  }
+  return out;
 }
 
 // 把場地尺寸攤平進各種 payload（房間自帶 config）
@@ -286,6 +320,62 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
+
+    // ---- 探雷即時對戰協議（與經典回合制分開，rt_ 前綴）----
+    if (msg.type === 'rt_create') {
+      const code = newCode();
+      const room = createRtRoom(code, sanitizeRtCfg(msg.cfg));
+      room.wsById = [];
+      rtRooms.set(code, room);
+      const id = rtAddPlayer(room, msg.name);
+      room.wsById[id] = ws;
+      ws.rtRoom = room; ws.rtId = id;
+      send(ws, { type: 'rt_created', code, id, cfg: room.cfg });
+      rtBroadcastLobby(room);
+      return;
+    }
+    if (msg.type === 'rt_join') {
+      const room = rtRooms.get(String(msg.code || '').toUpperCase().trim());
+      if (!room) return send(ws, { type: 'error', message: '找不到這個房間' });
+      if (room.started) return send(ws, { type: 'error', code: 'rt_started', message: '對局已開始' });
+      const id = rtAddPlayer(room, msg.name);
+      room.wsById[id] = ws;
+      ws.rtRoom = room; ws.rtId = id;
+      send(ws, { type: 'rt_joined', code: room.code, id, cfg: room.cfg });
+      rtBroadcastLobby(room);
+      return;
+    }
+    if (msg.type === 'rt_start') {
+      const room = ws.rtRoom;
+      if (!room || room.started || room.players.length < 1) return;
+      const seed = rtStart(room);
+      rtBroadcast(room, { type: 'rt_started', players: room.players.map((p) => ({ id: p.id, name: p.name })), cfg: room.cfg });
+      rtBroadcast(room, { type: 'board', seed });
+      return;
+    }
+    if (msg.type === 'reveal_req') {
+      const room = ws.rtRoom;
+      if (!room || !room.started) return;
+      const events = rtReveal(room, ws.rtId, msg.x | 0, msg.y | 0);
+      for (const ev of events) rtBroadcast(room, ev);
+      // 踩到重置雷 → 全房定格 N 秒（server 授時），時間到才換新盤 → 各 client 一起倒數開圖
+      if (events.some((e) => e.type === 'reveal' && e.kind === 'reset')) {
+        room.resetTimer = setTimeout(() => {
+          room.resetTimer = null;
+          rtBroadcast(room, rtResolveReset(room));
+        }, room.cfg.RESET_FREEZE_SEC * 1000);
+      }
+      return;
+    }
+    if (msg.type === 'rt_move') {
+      const room = ws.rtRoom;
+      if (!room) return;
+      const p = room.players[ws.rtId];
+      if (!p) return;
+      p.x = msg.x | 0; p.y = msg.y | 0;
+      rtBroadcast(room, { type: 'position', id: ws.rtId, x: p.x, y: p.y }, ws); // 轉發給別人，排除自己
+      return;
+    }
 
     if (msg.type === 'create') {
       const code = newCode();
@@ -441,6 +531,18 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    // 探雷即時房：釋放座位、通知全房；全空就收房（重連 #20 之後再做）
+    if (ws.rtRoom) {
+      const room = ws.rtRoom;
+      if (room.wsById[ws.rtId] === ws) room.wsById[ws.rtId] = null;
+      ws.rtRoom = null;
+      rtBroadcast(room, { type: 'rt_left', id: ws.rtId });
+      if (room.wsById.every((w) => !w)) {
+        if (room.resetTimer) clearTimeout(room.resetTimer);
+        rtRooms.delete(room.code);
+      }
+      return;
+    }
     const room = ws.room;
     if (!room) return;
     if (ws.isSpectator) {

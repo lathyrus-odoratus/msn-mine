@@ -7,26 +7,26 @@
 
 ## 階段 0：純前端 vsBot（驗手感，不碰 server）
 
-- [ ] **1. 雙人化狀態模型** — `me` → `players[2]`（玩家+bot），各自 x/y/score/energy/moveSlots/buff/face/mode/charge/flight/orbitAngle/baseRegen/成長上限；`cells` 保持單一共享盤面；攝影機與輸入綁 players[0]。
-- [ ] **2. 翻牌歸屬與雙人計分** — reveal 帶 player；cell 記 owner；同盤先到先得；雙方各自累積雷數。
-- [ ] **3. 雙人渲染與頭上 HUD** — 兩角色（顏色區分）、各自軌道能量/slot/buff/飄字；攝影機跟玩家，對手即時移動動畫；主 HUD 雙方比分。
-- [ ] **4. bot 即時 AI 迴圈** ⭐ — 復用 `pickMove` 選目標雷 → 尋路移動 → 翻牌；bot 自己的能量/slot/節奏；三種強度。（階段 1 也要的核心）
-- [ ] **5. bot 障礙跳躍** — bot 遇障礙自動完成蓄力跳越或繞路。
-- [ ] **6. 後追加成（移動＋回復）** — `catchupMult` 依雷數差：落後者移動 ×1.35 ＋ 能量/slot 回復加成。雪球防制核心。
-- [ ] **7. 共享機制適配（loop/成長/buff）** — 障礙共享；翻 0 buff 個人、揭數字共享；重置雷任一人踩→兩人一起換；成長對等（slot+1/能量+1/回復+0.6）。
-- [ ] **8. 雙人勝負與結算** — 先到累積 GOAL 勝；結算顯雙方分數/用時/張數；重置雷過場改雙人比分對照。
-- [ ] **9. 大廳 vsBot 入口** — runner 加「對電腦」選 bot 類型。
+- [x] **1. 雙人化狀態模型** — `me` → `players[2]`（玩家+bot），各自 x/y/score/energy/moveSlots/buff/face/mode/charge/flight/orbitAngle/baseRegen/成長上限；`cells` 保持單一共享盤面；攝影機與輸入綁 players[0]。
+- [x] **2. 翻牌歸屬與雙人計分** — reveal 帶 player；cell 記 owner；同盤先到先得；雙方各自累積雷數。
+- [x] **3. 雙人渲染與頭上 HUD** — 兩角色（顏色區分）、各自軌道能量/slot/buff/飄字；攝影機跟玩家，對手即時移動動畫；主 HUD 雙方比分。
+- [x] **4. bot 即時 AI 迴圈** ⭐ — 復用 `pickMove` 選目標雷 → 尋路移動 → 翻牌；bot 自己的能量/slot/節奏；三種強度。（階段 1 也要的核心）
+- [x] **5. bot 障礙跳躍** — bot 遇障礙自動完成蓄力跳越或繞路。
+- [x] **6. 後追加成（移動＋回復）** — `catchupMult` 依雷數差：落後者移動 ×1.35 ＋ 能量/slot 回復加成。雪球防制核心。
+- [x] **7. 共享機制適配（loop/成長/buff）** — 障礙共享；翻 0 buff 個人、揭數字共享；重置雷任一人踩→兩人一起換；成長對等（slot+1/能量+1/回復+0.6）。
+- [x] **8. 雙人勝負與結算** — 先到累積 GOAL 勝；結算顯雙方分數/用時/張數；重置雷過場改雙人比分對照。
+- [x] **9. 大廳 vsBot 入口** — runner 加「對電腦」選 bot 類型。
 - [ ] **10. 平衡調校（驗手感）** — bot 強度/節奏、雪球數值、成長曲線、GOAL；此階段驗收門檻。
 
 ## 階段 1：server 權威雙人連線
 
-- [ ] **11. game.js 解耦回合語意** — 抽「翻一格」核心（埋雷/flood/計分/owner），去 turn；盤面支援共享 seed。
-- [ ] **12. server 即時對戰房型** — 復用房間/token 重連/觀戰，新增即時 game 物件與生命週期（無 turn、權威盤面、雙方個人狀態、loop 進度）。
-- [ ] **13. 即時 ws 協議** — client→（move 位置 / reveal_req x,y / jump_start）；server→（positions / reveal_result by,x,y,owner,score / jump_event / map_reset / growth,buff）。
-- [ ] **14. server 翻牌仲裁** ⭐ — 序列化 reveal 請求、驗證（未翻、能量夠）、同時搶同格先到先得、定 owner+score、廣播。
-- [ ] **15. 位置同步與預測** ⭐ — client 降頻送位置（~15Hz）、本地預測自己移動、對手位置插值。
+- [x] **11. game.js 解耦回合語意** — `lib/runner-board.js` 抽「翻一格」核心（seed 建盤/flood/歸屬/先到先得），MineRunner 改用它當單一真相。
+- [x] **12. server 即時對戰房型** — `lib/rt-room.js`（N 人、無回合）＋ server.js `rt_` 協議房型，與經典回合制分開。
+- [x] **13. 即時 ws 協議** — client→（reveal_req / rt_move / rt_create/join/start）；server→（board seed / reveal / position / map_reset / rt_over / rt_lobby）。前端 `net-loopback`＋`net-ws` 同介面。
+- [x] **14. server 翻牌仲裁** ⭐ — `rtReveal` 序列化、先到先得定 owner+score、指派重置雷、判勝、廣播。
+- [~] **15. 位置同步與預測** ⭐ — 已做降頻送位置（走一格才送）＋對手 CSS 插值；本地預測/子格插值待精修。
 - [ ] **16. 跳躍事件同步** — 事件式（非連續幀）：jump_start 帶初始值（起點/方向/n/落地/時長），雙方各自算飛行、落地對齊。
-- [ ] **17. 全域換圖事件同步** — 重置雷→server 廣播 map_reset（共享 seed），兩人同步定格/比分/倒數/新圖、成長對等。
+- [~] **17. 全域換圖事件同步** — 重置雷→全房定格（server 授時 RESET_FREEZE_SEC，鎖翻牌）→ 時間到才廣播 map_reset（新 seed）＋成長。剩倒數 3 秒各 client 自數（近同時、微漂移）待精修。
 - [ ] **18. 能量/buff 權威校驗** — 個人狀態 client 算求流暢，server 翻牌時校驗能量；buff/成長以 server 事件為準。
 - [ ] **19. bot 上 server 即時 agent** — P0 的 bot 迴圈搬 server（或 vsBot 維持純前端不連線），擇一實作。
 - [ ] **20. 即時斷線重連** — 重連快照：盤面 + 雙方位置/能量/slot/buff/成長 + loop 進度 + 比分。

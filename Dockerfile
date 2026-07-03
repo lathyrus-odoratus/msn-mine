@@ -4,6 +4,8 @@ WORKDIR /app/web
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./
+# 探雷 runner 復用 ../../../lib/bot.js，前端建置也需要 lib/
+COPY lib/ /app/lib/
 RUN npm run build
 
 # 第二階段：執行環境（只帶 server 依賴與前端產物）

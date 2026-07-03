@@ -15,7 +15,8 @@ export function parseRoute() {
   const p = location.pathname;
   let m;
   if (p === '/' || p === '') return set('home');
-  if (p === '/runner') return set('runner');
+  if (p === '/runner-vs') return set('runnervs');
+  if ((m = p.match(/^\/runner(?:\/(random|greedy|smart))?$/))) return set('runner', m[1] || '');
   if (p === '/rooms') return set('rooms');
   if ((m = p.match(/^\/replays\/(\d+)$/))) return set('replay', m[1]);
   if (p === '/replays') return set('replays');

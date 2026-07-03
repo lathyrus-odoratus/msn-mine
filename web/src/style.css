@@ -253,6 +253,17 @@ button.secondary {
 .replays { display: flex; flex-direction: column; gap: 12px; min-width: 320px; align-items: stretch; }
 .replays-head { display: flex; align-items: center; justify-content: space-between; }
 .lobby-links { display: flex; justify-content: center; gap: 16px; margin-top: 4px; }
+.lobby-vsbot {
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; padding: 8px 12px; border-radius: 10px;
+  background: #f3f6fa; border: 1px solid #e0e6ee;
+}
+.vsbot-label { font-size: 13px; font-weight: 700; color: #556; }
+.vsbot-btn {
+  padding: 4px 12px; border-radius: 999px; border: 1px solid #cdd7e2; background: #fff;
+  font-size: 13px; font-weight: 600;
+}
+.vsbot-btn:hover { text-decoration: none; border-color: #2a6fd6; color: #2a6fd6; }
 .replay-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
 .replay-row {
   display: flex; flex-direction: column; gap: 2px; align-items: flex-start;

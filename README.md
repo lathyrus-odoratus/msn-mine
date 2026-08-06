@@ -59,28 +59,31 @@ npm run test:e2e    # 端對端測試：完整對局 + 斷線重連（e2e.js 需
 sessionStorage，刷新頁面或網路恢復後自動帶完整棋盤快照回到對局。逾時未歸隊則
 通知對手並解散房間。
 
-## 部署（GCP VM「wisp」+ Docker + Cloudflare Tunnel）
+## 部署
 
 正式站：https://mineduel.miao-bao.cc
 
-架構：Docker 容器綁 `127.0.0.1:8090` → cloudflared tunnel（`/etc/cloudflared/config.yml`
-的 ingress 規則 `mineduel.miao-bao.cc → http://localhost:8090`）→ Cloudflare DNS。
-VM 不開對外 port。伺服器每 30 秒 ws ping 保活（Cloudflare 會切斷閒置 100 秒的連線）。
+跑在容器裡，對外走 Cloudflare Tunnel。實際的叢集 manifest 與 tunnel 設定放在另一個
+私有的 infra repo，這裡只記**與程式本身有關的約束**：
 
-`docker compose` 另起一個 Postgres 容器（`db`，只在 compose 內部網路、不對外公開 port）
-存對局紀錄，資料放具名 volume `mine-pgdata`。連線字串由 compose 注入 `DATABASE_URL`；
-密碼可用環境變數 `PG_PASSWORD` 覆寫（預設 `mine_local_pw`）。沒有 DB 時 app 自動降級、
-不持久化也照常運作。
+- **單副本**：房間狀態在程序記憶體裡，不能水平擴充；更新要整鍋重建，
+  否則新舊副本會各持一半房間
+- **反向代理要能直通 WebSocket**。經 Cloudflare 時注意它會切斷閒置 100 秒的連線，
+  所以伺服器每 30 秒送一次 ws ping 保活
+- **`DATABASE_URL` 可選**：沒設就是記憶體模式、對局紀錄不持久化；
+  設了但帳密或資料庫有誤會**直接退出**（不靜默降級，避免以為有存其實沒存），
+  只是暫時連不上則重試約 18 秒
+- `/healthz` 供存活與就緒探測
+- image 由 GitHub Actions 在 push main 時建置並推 Artifact Registry，tag 釘 commit sha
 
-更新部署：
-
-```bash
-rsync -az --delete --exclude node_modules --exclude web/node_modules \
-  --exclude web/dist --exclude .git ./ wisp:~/msn-mine/
-ssh wisp 'cd ~/msn-mine && docker compose up -d --build'
-```
+本機想跑含 Postgres 的完整組合，用 `docker compose up --build`
+（app 綁 `127.0.0.1:8090`、pg 不對外公開 port、資料放具名 volume `mine-pgdata`、
+密碼可用 `PG_PASSWORD` 覆寫）。
 
 ## Roadmap
+
+> **現況（2026-08）**：功能穩定、線上運行中，但開發重心已移往別的專案，
+> 目前只做維護。以下未勾選的項目沒有時程，留著當備忘。
 
 - [x] 斷線重連
 
@@ -128,4 +131,6 @@ ssh wisp 'cd ~/msn-mine && docker compose up -d --build'
 獨立的新玩法原型，與經典對戰並存，網址 `/runner`（本地雙人 hot-seat）。
 角色在固定斜角 2.5D 地圖上奔跑，**走過就插旗**、一次引爆收割；回合制移動、時間軸排序、
 編排→執行（盲擲）。設計與演化見 [`docs/explore-mode.md`](docs/explore-mode.md)。
-目前純前端驗手感，尚未接網路。
+後來從回合制轉向即時 roguelite，並做了雙人化與連線骨架（見
+[`docs/versus-todo.md`](docs/versus-todo.md)）。**目前擱置**——設計上的取捨與收斂結論
+記在 explore-mode 文件裡。

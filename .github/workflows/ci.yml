@@ -1,0 +1,32 @@
+name: CI
+
+# PR 與 main 上跑測試、建置前端。部署不在這裡，見 release.yml。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - run: npm ci && npm test
+
+      - name: Build web
+        run: npm ci && npm run build
+        working-directory: web

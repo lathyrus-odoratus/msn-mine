@@ -63,18 +63,20 @@ sessionStorage，刷新頁面或網路恢復後自動帶完整棋盤快照回到
 
 正式站：https://mineduel.miao-bao.cc
 
-跑在容器裡，對外走 Cloudflare Tunnel。實際的叢集 manifest 與 tunnel 設定放在另一個
-私有的 infra repo，這裡只記**與程式本身有關的約束**：
+跑在單台 VM 的 [Dokploy](https://dokploy.com)（Docker Swarm）上，對外走 Cloudflare Tunnel。
+主機與 tunnel 設定放在另一個私有的 infra repo，這裡只記**與程式本身有關的約束**：
 
 - **單副本**：房間狀態在程序記憶體裡，不能水平擴充；更新要整鍋重建，
-  否則新舊副本會各持一半房間
+  否則新舊副本會各持一半房間（Swarm 的更新順序要設 `stop-first`，不能用預設的 `start-first`）
 - **反向代理要能直通 WebSocket**。經 Cloudflare 時注意它會切斷閒置 100 秒的連線，
   所以伺服器每 30 秒送一次 ws ping 保活
 - **`DATABASE_URL` 可選**：沒設就是記憶體模式、對局紀錄不持久化；
   設了但帳密或資料庫有誤會**直接退出**（不靜默降級，避免以為有存其實沒存），
-  只是暫時連不上則重試約 18 秒
+  暫時連不上會重試約 18 秒，仍連不上也退出，交給部署層重啟
 - `/healthz` 供存活與就緒探測
-- image 由 GitHub Actions 在 push main 時建置並推 Artifact Registry，tag 釘 commit sha
+- 發版：merge 改了 `package.json` 版號的 release PR，GitHub Actions 核准後建置 image 推到
+  `ghcr.io/lathyrus-odoratus/msn-mine` 並觸發 Dokploy 部署（流程見 [CLAUDE.md](CLAUDE.md)，
+  版本紀錄見 [CHANGELOG.md](CHANGELOG.md)）
 
 本機想跑含 Postgres 的完整組合，用 `docker compose up --build`
 （app 綁 `127.0.0.1:8090`、pg 不對外公開 port、資料放具名 volume `mine-pgdata`、

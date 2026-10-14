@@ -566,4 +566,4 @@ server.listen(PORT, () => {
   console.log(`msn-mine server listening on http://localhost:${PORT}`);
 });
 
-initStore(); // 連 Postgres（無則記憶體模式），不阻擋伺服器啟動
+initStore(); // 連 Postgres（沒設 DATABASE_URL 則記憶體模式；設了卻連不上會退出），不阻擋伺服器啟動
